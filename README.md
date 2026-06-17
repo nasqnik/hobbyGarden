@@ -1,6 +1,6 @@
 # Hobby Garden
 
-![Hobby Garden](Screenshot%202026-06-17%20at%204.55.03%20PM.png)
+![Hobby Garden](screenshot.png)
 
 A locally hosted app where your hobbies grow as flowers. The more time you spend on something, the bigger and more detailed its flower becomes.
 
