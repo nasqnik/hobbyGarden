@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Hobby Garden</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --sky-top: #74b9e8;
+      --sky-bot: #b8daf5;
+      --ground-top: #5da84e;
+      --ground-bot: #3d7a33;
+      --soil: #7a5230;
+      --modal-bg: rgba(15,20,10,0.55);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      background: linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-bot) 55%, var(--ground-top) 55%, var(--ground-bot) 100%);
+    }
+
+    /* clouds */
+    .cloud {
+      position: fixed;
+      background: rgba(255,255,255,0.82);
+      border-radius: 50px;
+      animation: drift linear infinite;
+    }
+    .cloud::before, .cloud::after {
+      content: '';
+      position: absolute;
+      background: inherit;
+      border-radius: 50%;
+    }
+    @keyframes drift { from { transform: translateX(-200px); } to { transform: translateX(110vw); } }
+
+    /* horizon hill */
+    .hill {
+      position: fixed;
+      bottom: 44%;
+      width: 100%;
+      height: 80px;
+      background: #4d9940;
+      border-radius: 50% 50% 0 0 / 80px 80px 0 0;
+    }
+
+    /* garden ground strip */
+    .ground-strip {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      height: 46%;
+      background: linear-gradient(to bottom, #5da84e, #3d7a33);
+    }
+
+    /* flowers area */
+    #garden {
+      position: fixed;
+      bottom: 18%;
+      left: 0;
+      right: 0;
+      height: 220px;
+      z-index: 10;
+    }
+
+    .flower-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: grab;
+      transition: transform 0.18s ease, filter 0.18s ease;
+      position: absolute;
+      bottom: 0;
+      transform: translateX(-50%);
+      user-select: none;
+    }
+    .flower-slot:hover {
+      transform: translateX(-50%) translateY(-8px) scale(1.06);
+      filter: brightness(1.05) drop-shadow(0 8px 16px rgba(0,0,0,0.18));
+    }
+    .flower-slot.dragging {
+      cursor: grabbing;
+      transition: none;
+      filter: brightness(1.08) drop-shadow(0 12px 24px rgba(0,0,0,0.25));
+      transform: translateX(-50%) scale(1.08);
+      z-index: 50;
+    }
+
+    .flower-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+      margin-top: 4px;
+      text-align: center;
+      max-width: 80px;
+      line-height: 1.3;
+    }
+
+    .flower-hours {
+      font-size: 10px;
+      color: rgba(255,255,255,0.85);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    /* add button */
+    #add-btn {
+      position: fixed;
+      bottom: 22px;
+      right: 24px;
+      background: rgba(255,255,255,0.93);
+      border: 2px solid rgba(0,0,0,0.1);
+      border-radius: 28px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #2d6e23;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      transition: transform 0.15s, box-shadow 0.15s;
+      z-index: 20;
+    }
+    #add-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.28);
+    }
+
+    /* legend */
+    #legend {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.88);
+      border-radius: 12px;
+      padding: 7px 18px;
+      font-size: 12px;
+      color: #333;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      z-index: 20;
+    }
+    .stage-pill {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .stage-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ---- MODAL ---- */
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--modal-bg);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(3px);
+    }
+    #overlay.open { display: flex; }
+
+    #modal {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 28px 24px;
+      width: 500px;
+      max-width: 92vw;
+      max-height: 88vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.28);
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 18px; right: 18px;
+      background: #f0f0f0;
+      border: none;
+      border-radius: 50%;
+      width: 30px; height: 30px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #555;
+    }
+    .modal-close:hover { background: #e0e0e0; }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .modal-flower-preview svg { display: block; }
+
+    .modal-title { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+    .modal-sub { font-size: 13px; color: #777; margin-top: 2px; }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #999;
+      margin-bottom: 8px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #f7f7f7;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-card .val { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+    .stat-card .lbl { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* timer */
+    .timer-section {
+      background: #f7f4ff;
+      border-radius: 14px;
+      padding: 16px 16px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .timer-modes {
+      display: flex;
+      gap: 6px;
+    }
+    .timer-mode-btn {
+      background: none;
+      border: 1.5px solid #ccc;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .timer-mode-btn.active {
+      background: #6c5ce7;
+      border-color: #6c5ce7;
+      color: #fff;
+    }
+    .timer-ring-wrap {
+      position: relative;
+      width: 110px;
+      height: 110px;
+    }
+    .timer-ring-wrap svg { position: absolute; top: 0; left: 0; }
+    .timer-display {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .timer-time {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d1f6e;
+      letter-spacing: -0.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .timer-label {
+      font-size: 10px;
+      color: #9b8fd4;
+      margin-top: 1px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .timer-controls {
+      display: flex;
+      gap: 8px;
+    }
+    .timer-btn {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.12s, transform 0.1s;
+    }
+    .timer-btn:active { transform: scale(0.96); }
+    .timer-btn.primary { background: #6c5ce7; color: #fff; }
+    .timer-btn.primary:hover { background: #5a4bd1; }
+    .timer-btn.secondary { background: #ede9ff; color: #6c5ce7; }
+    .timer-btn.secondary:hover { background: #ddd6ff; }
+    .timer-btn.log-btn { background: #2d6e23; color: #fff; }
+    .timer-btn.log-btn:hover { background: #245a1c; }
+    .timer-btn:disabled { opacity: 0.35; cursor: default; }
+    .timer-done-banner {
+      background: #e6ffe9;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #2d6e23;
+      text-align: center;
+    }
+
+    /* water form */
+    .water-form {
+      background: #f0f9ee;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .water-form h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #2d6e23; }
+    .form-row { display: flex; gap: 10px; align-items: center; }
+    .form-row input[type="number"] {
+      flex: 1;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1.5px solid #ccc;
+      font-size: 14px;
+      outline: none;
+    }
+    .form-row input[type="number"]:focus { border-color: #5da84e; }
+    .water-btn {
+      background: #2d6e23;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .water-btn:hover { background: #245a1c; }
+
+    /* comparison bars */
+    .comparison-section { margin-bottom: 18px; }
+    .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .bar-label { font-size: 12px; color: #555; min-width: 90px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+    .bar-track { flex: 1; height: 10px; background: #ececec; border-radius: 5px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 5px; transition: width 0.4s ease; }
+    .bar-val { font-size: 12px; color: #888; min-width: 40px; }
+    .bar-row.active .bar-label { font-weight: 700; color: #1a1a1a; }
+    .bar-row.active .bar-val { font-weight: 700; color: #1a1a1a; }
+
+    /* wins */
+    .wins-section { margin-bottom: 18px; }
+    .win-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .win-input-row input[type="text"] {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1.5px solid #f5c842;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      background: #fffdf0;
+      transition: border-color 0.15s;
+    }
+    .win-input-row input[type="text"]:focus { border-color: #e6a800; }
+    .win-add-btn {
+      background: #f5c842;
+      border: none;
+      border-radius: 8px;
+      padding: 0 14px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .win-add-btn:hover { background: #e6b800; }
+    .wins-list { max-height: 160px; overflow-y: auto; }
+    .win-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid #fdf3c0;
+    }
+    .win-entry:last-child { border-bottom: none; }
+    .win-star { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .win-text { flex: 1; font-size: 13px; color: #333; line-height: 1.45; }
+    .win-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .win-date { font-size: 11px; color: #ccc; white-space: nowrap; }
+    .delete-win { background: none; border: none; color: #ddd; cursor: pointer; font-size: 13px; padding: 0; }
+    .delete-win:hover { color: #e44; }
+
+    /* activity log */
+    .log-section { margin-bottom: 18px; }
+    .log-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .log-input-row textarea {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1.5px solid #ccc;
+      font-size: 13px;
+      font-family: inherit;
+      resize: none;
+      height: 38px;
+      line-height: 1.4;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .log-input-row textarea:focus { border-color: #5da84e; }
+    .log-add-btn {
+      background: #f0f9ee;
+      border: 1.5px solid #b5d9ae;
+      border-radius: 8px;
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #2d6e23;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s;
+    }
+    .log-add-btn:hover { background: #d9f0d4; }
+    .log-entries { max-height: 160px; overflow-y: auto; }
+    .log-entry {
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-entry-text { flex: 1; font-size: 13px; color: #222; line-height: 1.45; }
+    .log-entry-date { font-size: 11px; color: #aaa; white-space: nowrap; margin-top: 2px; }
+    .log-entry-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .delete-log {
+      background: none; border: none; color: #ddd;
+      cursor: pointer; font-size: 13px; padding: 0;
+      line-height: 1;
+    }
+    .delete-log:hover { color: #e44; }
+
+    /* sessions log */
+    .sessions-list { max-height: 140px; overflow-y: auto; }
+    .session-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 13px;
+    }
+    .session-item:last-child { border-bottom: none; }
+    .session-date { color: #999; font-size: 12px; }
+    .session-hrs { font-weight: 600; color: #2d6e23; }
+    .delete-session {
+      background: none;
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 4px;
+    }
+    .delete-session:hover { color: #e44; }
+
+    /* add hobby modal */
+    #add-modal {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px;
+      width: 380px;
+      max-width: 92vw;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.28);
+      position: relative;
+    }
+    #add-modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+    .add-field { margin-bottom: 14px; }
+    .add-field label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 500; }
+    .add-field input[type="text"] {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1.5px solid #ccc;
+      font-size: 14px;
+      outline: none;
+    }
+    .add-field input[type="text"]:focus { border-color: #5da84e; }
+    .color-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+    .swatch {
+      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform 0.12s;
+    }
+    .swatch.selected { border-color: #333; transform: scale(1.15); }
+    .add-submit {
+      width: 100%;
+      background: #2d6e23;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: background 0.15s;
+    }
+    .add-submit:hover { background: #245a1c; }
+
+    .empty-hint {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: rgba(255,255,255,0.75);
+      font-size: 18px;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .empty-hint p { margin-top: 8px; font-size: 14px; opacity: 0.7; }
+
+    .chart-tab-btn {
+      background: none;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .chart-tab-btn.chart-tab-active {
+      background: #2d6e23;
+      border-color: #2d6e23;
+      color: #fff;
+    }
+    .progress-bar-outer {
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(to right, #5da84e, #2d6e23);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background elements -->
+<div class="ground-strip"></div>
+<div class="hill" style="left:0;width:35%;bottom:43%;opacity:0.7;"></div>
+<div class="hill" style="right:0;width:40%;bottom:42%;opacity:0.6;"></div>
+
+<!-- Clouds -->
+<div class="cloud" id="c1" style="width:90px;height:28px;top:12%;animation-duration:55s;animation-delay:-20s;opacity:0.85;">
+  <div style="width:40px;height:40px;top:-22px;left:10px;position:absolute;background:rgba(255,255,255,0.82);border-radius:50%;"></div>
+  <div style="width:30px;height:30px;top:-16px;left:38px;position:absolute;background:rgba(255,255,255,0.82);border-radius:50%;"></div>
+</div>
+<div class="cloud" id="c2" style="width:70px;height:22px;top:22%;animation-duration:70s;animation-delay:-35s;opacity:0.7;">
+  <div style="width:30px;height:30px;top:-18px;left:8px;position:absolute;background:rgba(255,255,255,0.7);border-radius:50%;"></div>
+  <div style="width:22px;height:22px;top:-12px;left:32px;position:absolute;background:rgba(255,255,255,0.7);border-radius:50%;"></div>
+</div>
+
+<!-- Legend -->
+<div id="legend">
+  <span style="font-weight:600;color:#555;font-size:11px;">Growth stages:</span>
+  <span class="stage-pill"><span class="stage-dot" style="background:#c8a97a;"></span><span>seed (0h)</span></span>
+  <span class="stage-pill"><span class="stage-dot" style="background:#7fc97a;"></span><span>sprout (&lt;2h)</span></span>
+  <span class="stage-pill"><span class="stage-dot" style="background:#5da84e;"></span><span>bud (2–10h)</span></span>
+  <span class="stage-pill"><span class="stage-dot" style="background:#2d9e22;"></span><span>bloom (10–40h)</span></span>
+  <span class="stage-pill"><span class="stage-dot" style="background:#FFD700;"></span><span>thrive (40h+)</span></span>
+</div>
+
+<!-- Garden -->
+<div id="garden"></div>
+
+<!-- Empty hint -->
+<div class="empty-hint" id="empty-hint">
+  <div style="font-size:48px;">🌱</div>
+  <div>Your garden is empty</div>
+  <p>Click the button below to plant your first hobby</p>
+</div>
+
+<!-- Buttons -->
+<button id="compare-btn" style="position:fixed;bottom:22px;left:24px;background:rgba(255,255,255,0.93);border:2px solid rgba(0,0,0,0.1);border-radius:28px;padding:10px 20px;font-size:14px;font-weight:600;color:#2d6e23;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.15s,box-shadow 0.15s;z-index:20;">⚖ Compare</button>
+<button id="add-btn">＋ Plant a hobby</button>
+
+<!-- Compare Modal -->
+<div id="compare-overlay" style="display:none;position:fixed;inset:0;background:var(--modal-bg);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+  <div style="background:#fff;border-radius:20px;padding:28px;width:660px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.28);position:relative;">
+    <button id="compare-close" style="position:absolute;top:18px;right:18px;background:#f0f0f0;border:none;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;color:#555;">✕</button>
+    <div style="font-size:20px;font-weight:700;margin-bottom:20px;">Watering comparison</div>
+    <div id="compare-body"></div>
+  </div>
+</div>
+
+<!-- Flower Modal -->
+<div id="overlay">
+  <div id="modal">
+    <button class="modal-close" id="modal-close">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Add Hobby Modal -->
+<div id="overlay2" style="display:none;position:fixed;inset:0;background:var(--modal-bg);z-index:110;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+  <div id="add-modal">
+    <button class="modal-close" id="add-modal-close">✕</button>
+    <h2>Plant a new hobby</h2>
+    <div class="add-field">
+      <label>Name</label>
+      <input type="text" id="hobby-name" placeholder="e.g. Guitar, Drawing, Chess…" maxlength="30">
+    </div>
+    <div class="add-field">
+      <label>Pick a flower color</label>
+      <div class="color-swatches" id="color-swatches"></div>
+    </div>
+    <button class="add-submit" id="add-submit">Plant it 🌱</button>
+  </div>
+</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'hobby-garden-v2';
+const PALETTE = [
+  '#e05c5c','#e0885c','#e0c45c','#a8d15c','#5cd16e',
+  '#5cb8d1','#5c7de0','#9e5ce0','#e05cbc','#e05c88',
+  '#ff8fab','#06d6a0','#118ab2','#ffd166','#ef476f',
+];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const USE_SERVER = location.protocol !== 'file:';
+
+async function loadState() {
+  if (USE_SERVER) {
+    try {
+      const res = await fetch('/data');
+      return await res.json();
+    } catch { return { hobbies: [] }; }
+  }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { hobbies: [] }; }
+  catch { return { hobbies: [] }; }
+}
+
+function saveState() {
+  if (USE_SERVER) {
+    fetch('/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state)
+    }).catch(() => {});
+  } else {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+}
+
+let state = { hobbies: [] };
+let selectedHobbyId = null;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function totalHours(hobby) {
+  return hobby.sessions ? hobby.sessions.reduce((s, x) => s + x.hours, 0) : 0;
+}
+function getStage(hours) {
+  if (hours === 0) return 0;
+  if (hours < 2) return 1;
+  if (hours < 10) return 2;
+  if (hours < 40) return 3;
+  if (hours < 120) return 4;
+  return 5;
+}
+function hobbyProgress(hobby) {
+  return Math.min(totalHours(hobby) / 40, 1);
+}
+function spawnNextGen(hobby) {
+  const newX = Math.max(8, Math.min(92, (hobby.x ?? 50) + (Math.random() - 0.5) * 20));
+  const gen = (hobby.generation || 1) + 1;
+  state.hobbies.push({
+    id: uid(),
+    name: hobby.name,
+    color: hobby.color,
+    sessions: [],
+    x: newX,
+    y: Math.random() * 55,
+    generation: gen,
+  });
+  hobby.spawned = true;
+  saveState();
+  renderGarden();
+}
+function fmtH(h) {
+  if (h === 0) return '0h';
+  if (h < 1) return Math.round(h * 60) + 'm';
+  const hrs = Math.floor(h);
+  const min = Math.round((h - hrs) * 60);
+  return min ? `${hrs}h ${min}m` : `${hrs}h`;
+}
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// ─── Timer State ─────────────────────────────────────────────────────────────
+const timer = {
+  hobbyId: null,
+  running: false,
+  elapsed: 0,      // seconds accumulated
+  mode: 0,         // 0=free, else total seconds for countdown
+  startedAt: null, // Date.now() when last started
+  interval: null,
+  done: false,
+};
+const MODES = [0, 25*60, 45*60, 50*60, 60*60];
+const MODE_LABELS = ['Free','25m','45m','50m','1h'];
+
+function timerTick() {
+  if (!timer.running) return;
+  const now = Date.now();
+  timer.elapsed = timer._baseElapsed + Math.floor((now - timer.startedAt) / 1000);
+  if (timer.mode > 0 && timer.elapsed >= timer.mode) {
+    timer.elapsed = timer.mode;
+    timerStop(true);
+  }
+  updateTimerDisplay();
+}
+
+function timerStart() {
+  if (timer.done) return;
+  timer._baseElapsed = timer.elapsed;
+  timer.startedAt = Date.now();
+  timer.running = true;
+  timer.interval = setInterval(timerTick, 500);
+  updateTimerDisplay();
+}
+
+function timerPause() {
+  timer.running = false;
+  clearInterval(timer.interval);
+  timer.interval = null;
+  updateTimerDisplay();
+}
+
+function playChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.18;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.28, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+      osc.start(t);
+      osc.stop(t + 1.1);
+    });
+  } catch(e) {}
+}
+
+function timerStop(finished = false) {
+  timer.running = false;
+  clearInterval(timer.interval);
+  timer.interval = null;
+  timer.done = finished;
+  if (finished) {
+    playChime();
+    const hours = timer.elapsed / 3600;
+    if (hours > 0 && timer.hobbyId) logTimerSession(hours);
+  }
+  updateTimerDisplay();
+}
+
+function timerReset() {
+  timer.running = false;
+  timer.done = false;
+  timer.elapsed = 0;
+  timer._baseElapsed = 0;
+  clearInterval(timer.interval);
+  timer.interval = null;
+  updateTimerDisplay();
+}
+
+function logTimerSession(hours) {
+  const h = state.hobbies.find(x => x.id === timer.hobbyId);
+  if (!h) return;
+  h.sessions = h.sessions || [];
+  h.sessions.push({ hours, date: new Date().toISOString(), fromTimer: true });
+  saveState();
+  renderGarden();
+  timerReset();
+  if (selectedHobbyId === timer.hobbyId) renderModal();
+}
+
+function fmtTimer(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function updateTimerDisplay() {
+  const ring = document.getElementById('timer-ring');
+  const timeEl = document.getElementById('timer-time');
+  const labelEl = document.getElementById('timer-label');
+  const startBtn = document.getElementById('timer-start');
+  const resetBtn = document.getElementById('timer-reset');
+  const logBtn = document.getElementById('timer-log');
+  const banner = document.getElementById('timer-done-banner');
+  if (!timeEl) return;
+
+  const displayed = timer.mode > 0 ? timer.mode - timer.elapsed : timer.elapsed;
+  timeEl.textContent = fmtTimer(Math.max(0, displayed));
+
+  if (timer.mode > 0) {
+    const pct = timer.elapsed / timer.mode;
+    const circ = 2 * Math.PI * 48;
+    ring.style.strokeDashoffset = (circ * (1 - pct)).toFixed(2);
+    labelEl.textContent = timer.running ? 'focus' : (timer.done ? 'done!' : 'paused');
+  } else {
+    const circ = 2 * Math.PI * 48;
+    const spin = Math.min(timer.elapsed / 3600, 1);
+    ring.style.strokeDashoffset = (circ * (1 - spin)).toFixed(2);
+    labelEl.textContent = timer.running ? 'running' : (timer.elapsed > 0 ? 'paused' : 'ready');
+  }
+
+  if (startBtn) {
+    startBtn.textContent = timer.running ? 'Pause' : (timer.elapsed > 0 || timer.done ? 'Resume' : 'Start');
+    startBtn.disabled = timer.done;
+  }
+  if (resetBtn) resetBtn.disabled = timer.elapsed === 0 && !timer.done;
+  if (logBtn) logBtn.disabled = timer.elapsed === 0 || timer.running;
+  if (banner) banner.style.display = timer.done ? 'block' : 'none';
+}
+
+// ─── Seeded RNG (mulberry32) ─────────────────────────────────────────────────
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s += 0x6d2b79f5;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t ^= t + Math.imul(t ^ t >>> 7, 61 | t);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function strSeed(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = Math.imul(31, h) + str.charCodeAt(i) | 0; }
+  return h >>> 0;
+}
+
+// ─── Color helpers ───────────────────────────────────────────────────────────
+function hexDarken(hex, amt) {
+  let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  r = Math.max(0,r-amt); g = Math.max(0,g-amt); b = Math.max(0,b-amt);
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function hexLighten(hex, amt) {
+  let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  r = Math.min(255,r+amt); g = Math.min(255,g+amt); b = Math.min(255,b+amt);
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function hexMix(a, b, t) {
+  const ar=parseInt(a.slice(1,3),16), ag=parseInt(a.slice(3,5),16), ab=parseInt(a.slice(5,7),16);
+  const br=parseInt(b.slice(1,3),16), bg=parseInt(b.slice(3,5),16), bb=parseInt(b.slice(5,7),16);
+  const r=Math.round(ar+(br-ar)*t), g=Math.round(ag+(bg-ag)*t), bv=Math.round(ab+(bb-ab)*t);
+  return '#'+[r,g,bv].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+// ─── Flower SVG Generator ────────────────────────────────────────────────────
+function flowerSVG(hobby, w, h) {
+  const hours = totalHours(hobby);
+  const stage = getStage(hours);
+  const col = hobby.color;
+  const cx = w / 2;
+  const base = h;
+  const rng = makeRng(strSeed(hobby.id));
+
+  // Per-hobby personality (rolled once, stable)
+  const petalShape   = Math.floor(rng() * 4);   // 0=round, 1=pointed, 2=wide, 3=star
+  const patternType  = Math.floor(rng() * 5);   // 0=plain, 1=tips, 2=streaks, 3=spots, 4=bicolor
+  const petalOffset  = rng() * Math.PI * 2;     // rotation offset
+  const centerStyle  = Math.floor(rng() * 3);   // 0=gold, 1=dark, 2=white
+  const leafAngleVar = (rng() - 0.5) * 20;      // leaf angle variation
+  const stemCurve    = (rng() - 0.5) * 16;      // stem curve direction
+  const extraRing    = rng() > 0.5;             // second petal ring unlock
+  const spotCount    = 2 + Math.floor(rng() * 5);
+  const streakCount  = 3 + Math.floor(rng() * 4);
+  const tipColor     = rng() > 0.5 ? hexDarken(col, 55) : hexLighten(col, 60);
+  const biColor      = rng() > 0.5 ? hexMix(col, '#ffffff', 0.55) : hexMix(col, '#000000', 0.25);
+
+  const centerColors = ['#FFD740','#3a2010','#f5f5f5'];
+  const centerInner  = ['#FF9800','#6b3a1a','#ddd'];
+  const centerDot    = ['#e65c00','#c8a070','#aaa'];
+  const cCol  = centerColors[centerStyle];
+  const cIn   = centerInner[centerStyle];
+  const cDot  = centerDot[centerStyle];
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">`;
+
+  if (stage === 0) {
+    svg += `<ellipse cx="${cx}" cy="${base-3}" rx="${w*0.22}" ry="${h*0.06}" fill="#8b6339" opacity="0.7"/>`;
+    svg += `<ellipse cx="${cx}" cy="${base-5}" rx="${w*0.1}" ry="${h*0.04}" fill="#a07840" opacity="0.8"/>`;
+  } else {
+    const stemH   = [0, h*0.28, h*0.45, h*0.62, h*0.78, h*0.92][stage];
+    const stemW   = [0, 2, 2.5, 3, 3.5, 4][stage];
+    const stemTop = base - stemH;
+    const cp1x    = cx + stemCurve * 0.5;
+    const cp1y    = base - stemH * 0.5;
+
+    svg += `<path d="M${cx},${base} Q${cp1x},${cp1y} ${cx},${stemTop}" stroke="#3a8c2f" stroke-width="${stemW}" fill="none" stroke-linecap="round"/>`;
+
+    if (stage >= 2) {
+      const ly1   = base - stemH * 0.38;
+      const ly2   = base - stemH * 0.62;
+      const lsize = w * 0.14 * (1 + stage * 0.06);
+      const la    = 35 + leafAngleVar;
+      svg += `<ellipse cx="${cx-lsize*0.9}" cy="${ly1}" rx="${lsize}" ry="${lsize*0.4}" fill="#4cad3f" transform="rotate(${-la} ${cx-lsize*0.9} ${ly1})"/>`;
+      svg += `<ellipse cx="${cx+lsize*0.9}" cy="${ly2}" rx="${lsize}" ry="${lsize*0.4}" fill="#3d9a32" transform="rotate(${la} ${cx+lsize*0.9} ${ly2})"/>`;
+      if (stage >= 4) {
+        const ly3 = base - stemH * 0.82;
+        svg += `<ellipse cx="${cx-lsize*0.7}" cy="${ly3}" rx="${lsize*0.8}" ry="${lsize*0.35}" fill="#4cad3f" transform="rotate(${-(la-8)} ${cx-lsize*0.7} ${ly3})"/>`;
+      }
+    }
+
+    const fy = stemTop;
+
+    if (stage === 1) {
+      svg += `<ellipse cx="${cx}" cy="${fy - h*0.04}" rx="${w*0.07}" ry="${h*0.07}" fill="${col}" opacity="0.9"/>`;
+      svg += `<path d="M${cx-w*0.05},${fy} Q${cx},${fy-h*0.06} ${cx+w*0.05},${fy}" fill="#5da84e"/>`;
+    }
+
+    if (stage >= 2) {
+      const basePetals = [0, 0, 5, 6, 8, 10];
+      let pcount = basePetals[stage];
+      // Personality tweaks to petal count
+      if (petalShape === 3) pcount = Math.max(6, pcount + 2); // star gets more
+      if (petalShape === 2) pcount = Math.max(4, pcount - 1); // wide gets fewer
+
+      const pLen = [0, 0, w*0.18, w*0.22, w*0.27, w*0.32][stage];
+      const pW   = [0, 0, w*0.09, w*0.11, w*0.13, w*0.15][stage];
+      const cR   = [0, 0, w*0.1,  w*0.13, w*0.16, w*0.2][stage];
+
+      // Shape multipliers
+      const rxMul = [1, 0.45, 1.4, 0.6][petalShape];   // petal width
+      const ryMul = [1, 1.6,  0.7, 1.5][petalShape];   // petal length
+
+      // Draw petal pattern (only stage 3+ reveals pattern)
+      function drawPetal(px, py, rx, ry, rot, baseCol, i) {
+        const t = `rotate(${rot.toFixed(1)} ${px.toFixed(1)} ${py.toFixed(1)})`;
+
+        if (stage < 3 || patternType === 0) {
+          // Plain
+          svg += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${baseCol}" opacity="0.9" transform="${t}"/>`;
+        } else if (patternType === 1) {
+          // Colored tips: base + a smaller ellipse at the end
+          svg += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${baseCol}" opacity="0.9" transform="${t}"/>`;
+          const tipPx = px + Math.cos((rot-90)*Math.PI/180) * ry * 0.55;
+          const tipPy = py + Math.sin((rot-90)*Math.PI/180) * ry * 0.55;
+          svg += `<ellipse cx="${tipPx.toFixed(1)}" cy="${tipPy.toFixed(1)}" rx="${(rx*0.55).toFixed(1)}" ry="${(ry*0.38).toFixed(1)}" fill="${tipColor}" opacity="0.75" transform="${t.replace(/rotate.*/, `rotate(${rot.toFixed(1)} ${tipPx.toFixed(1)} ${tipPy.toFixed(1)})`)}"/>`;
+        } else if (patternType === 2) {
+          // Streaks: base + thin radial lines on petals
+          svg += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${baseCol}" opacity="0.9" transform="${t}"/>`;
+          for (let s2 = 0; s2 < streakCount; s2++) {
+            const off = (s2 / (streakCount-1) - 0.5) * rx * 1.2;
+            const ang = (rot - 90) * Math.PI / 180;
+            const perpAng = ang + Math.PI/2;
+            const sx = px + Math.cos(perpAng)*off;
+            const sy = py + Math.sin(perpAng)*off;
+            const ex = sx + Math.cos(ang)*ry*0.85;
+            const ey = sy + Math.sin(ang)*ry*0.85;
+            svg += `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="${tipColor}" stroke-width="0.8" opacity="0.55" stroke-linecap="round"/>`;
+          }
+        } else if (patternType === 3) {
+          // Spots on petals
+          svg += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${baseCol}" opacity="0.9" transform="${t}"/>`;
+          const ang = (rot - 90) * Math.PI / 180;
+          for (let s2 = 0; s2 < spotCount; s2++) {
+            const along = (s2 / spotCount) * ry * 0.75 + ry * 0.1;
+            const aside = (makeRng(i*100+s2+77)() - 0.5) * rx * 0.85;
+            const perpAng = ang + Math.PI/2;
+            const spx = px + Math.cos(ang)*along + Math.cos(perpAng)*aside;
+            const spy = py + Math.sin(ang)*along + Math.sin(perpAng)*aside;
+            svg += `<circle cx="${spx.toFixed(1)}" cy="${spy.toFixed(1)}" r="${(rx*0.12).toFixed(1)}" fill="${tipColor}" opacity="0.55"/>`;
+          }
+        } else {
+          // Bicolor: split petal
+          svg += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="${biColor}" opacity="0.9" transform="${t}"/>`;
+          const clipAng = (rot - 90) * Math.PI / 180;
+          const hpx = px + Math.cos(clipAng) * ry * 0.35;
+          const hpy = py + Math.sin(clipAng) * ry * 0.35;
+          svg += `<ellipse cx="${hpx.toFixed(1)}" cy="${hpy.toFixed(1)}" rx="${(rx*0.85).toFixed(1)}" ry="${(ry*0.6).toFixed(1)}" fill="${baseCol}" opacity="0.82" transform="${`rotate(${rot.toFixed(1)} ${hpx.toFixed(1)} ${hpy.toFixed(1)})`}"/>`;
+        }
+      }
+
+      // Outer petals
+      for (let i = 0; i < pcount; i++) {
+        const angle = (i / pcount) * Math.PI * 2 - Math.PI / 2 + petalOffset;
+        const dist  = cR + pLen * 0.42;
+        const px    = cx + Math.cos(angle) * dist;
+        const py    = fy + Math.sin(angle) * dist;
+        const rot   = angle * 180 / Math.PI + 90;
+        drawPetal(px, py, pLen * 0.5 * rxMul, pW * 0.5 * ryMul, rot, col, i);
+      }
+
+      // Second ring — unlocks at stage 4+, only for hobbies that rolled extraRing
+      if (stage >= 4 && extraRing) {
+        const icount = Math.max(4, pcount - 2);
+        for (let i = 0; i < icount; i++) {
+          const angle = (i / icount) * Math.PI * 2 - Math.PI / 2 + petalOffset + Math.PI / icount;
+          const dist  = cR * 0.6 + pLen * 0.22;
+          const px    = cx + Math.cos(angle) * dist;
+          const py    = fy + Math.sin(angle) * dist;
+          const rot   = angle * 180 / Math.PI + 90;
+          svg += `<ellipse cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" rx="${(pLen*0.3*rxMul).toFixed(1)}" ry="${(pW*0.32*ryMul).toFixed(1)}" fill="${hexDarken(col,30)}" opacity="0.7" transform="rotate(${rot.toFixed(1)} ${px.toFixed(1)} ${py.toFixed(1)})"/>`;
+        }
+      }
+
+      // Center disc
+      svg += `<circle cx="${cx}" cy="${fy}" r="${cR}" fill="${cCol}"/>`;
+      svg += `<circle cx="${cx}" cy="${fy}" r="${cR*0.58}" fill="${cIn}"/>`;
+      if (stage >= 3) {
+        for (let i = 0; i < 6; i++) {
+          const a  = (i/6)*Math.PI*2 + petalOffset;
+          const dr = cR * 0.35;
+          svg += `<circle cx="${(cx+Math.cos(a)*dr).toFixed(1)}" cy="${(fy+Math.sin(a)*dr).toFixed(1)}" r="${(cR*0.1).toFixed(1)}" fill="${cDot}" opacity="0.75"/>`;
+        }
+      }
+    }
+  }
+
+  svg += '</svg>';
+  return svg;
+}
+
+// ─── Drag to reposition ──────────────────────────────────────────────────────
+const drag = {
+  hobbyId: null,
+  el: null,
+  startX: 0,
+  startY: 0,
+  moved: false,
+
+  start(e, hobbyId, el) {
+    this.hobbyId = hobbyId;
+    this.el = el;
+    this.startX = e.clientX;
+    this.startY = e.clientY;
+    this.moved = false;
+  },
+
+  move(e) {
+    if (!this.hobbyId) return;
+    const dx = e.clientX - this.startX;
+    const dy = e.clientY - this.startY;
+    if (!this.moved && Math.sqrt(dx*dx + dy*dy) < 6) return;
+    if (!this.moved) {
+      this.moved = true;
+      this.el.classList.add('dragging');
+    }
+    const garden = document.getElementById('garden');
+    const rect = garden.getBoundingClientRect();
+    const newX = Math.max(4, Math.min(96, (e.clientX - rect.left) / rect.width * 100));
+    const newY = Math.max(0, Math.min(130, rect.bottom - e.clientY));
+    this.el.style.left = newX + '%';
+    this.el.style.bottom = newY + 'px';
+  },
+
+  end(e) {
+    if (!this.hobbyId) return;
+    if (this.moved) {
+      const garden = document.getElementById('garden');
+      const rect = garden.getBoundingClientRect();
+      const hobby = state.hobbies.find(h => h.id === this.hobbyId);
+      if (hobby) {
+        hobby.x = Math.max(4, Math.min(96, (e.clientX - rect.left) / rect.width * 100));
+        hobby.y = Math.max(0, Math.min(130, rect.bottom - e.clientY));
+        saveState();
+      }
+      this.el.classList.remove('dragging');
+    } else {
+      openModal(this.hobbyId);
+    }
+    this.hobbyId = null;
+    this.el = null;
+    this.moved = false;
+  }
+};
+
+document.addEventListener('mousemove', e => drag.move(e));
+document.addEventListener('mouseup',   e => drag.end(e));
+
+// ─── Render Garden ───────────────────────────────────────────────────────────
+function renderGarden() {
+  const garden = document.getElementById('garden');
+  const hint = document.getElementById('empty-hint');
+  const hobbies = state.hobbies;
+
+  hint.style.display = hobbies.length === 0 ? 'block' : 'none';
+
+  garden.innerHTML = '';
+  hobbies.forEach(hobby => {
+    const hours = totalHours(hobby);
+    const stage = getStage(hours);
+    const sizes = [50, 60, 75, 90, 105, 120];
+    const sz = sizes[stage];
+    const svgH = Math.round(sz * 1.6);
+
+    const slot = document.createElement('div');
+    slot.className = 'flower-slot';
+    slot.dataset.id = hobby.id;
+    slot.style.left = (hobby.x ?? 50) + '%';
+    slot.style.bottom = (hobby.y ?? 0) + 'px';
+    slot.innerHTML = `
+      <div style="height:${svgH}px;display:flex;align-items:flex-end;">${flowerSVG(hobby, sz, svgH)}</div>
+      <div class="flower-name">${escHtml(hobby.name)}</div>
+      <div class="flower-hours">${fmtH(hours)}</div>
+    `;
+    slot.addEventListener('mousedown', e => {
+      e.preventDefault();
+      drag.start(e, hobby.id, slot);
+    });
+    garden.appendChild(slot);
+  });
+}
+
+// ─── Modal ───────────────────────────────────────────────────────────────────
+function openModal(id) {
+  selectedHobbyId = id;
+  renderModal();
+  document.getElementById('overlay').classList.add('open');
+}
+
+function renderModal() {
+  const hobby = state.hobbies.find(h => h.id === selectedHobbyId);
+  if (!hobby) return;
+
+  const hours = totalHours(hobby);
+  const sessions = hobby.sessions || [];
+  const stage = getStage(hours);
+  const stageNames = ['Seed','Sprout','Seedling','Budding','Blooming','Flourishing'];
+  const previewSz = 70;
+  const previewH = Math.round(previewSz * 1.6);
+
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-flower-preview" style="height:${previewH}px;display:flex;align-items:flex-end;">
+        ${flowerSVG(hobby, previewSz, previewH)}
+      </div>
+      <div>
+        <div class="modal-title">${escHtml(hobby.name)}${hobby.generation > 1 ? ` <span style="font-size:13px;color:#aaa;font-weight:400;">gen ${hobby.generation}</span>` : ''}</div>
+        <div class="modal-sub">Stage: ${stageNames[stage]} · ${sessions.length} watering${sessions.length !== 1 ? 's' : ''}</div>
+        <div class="progress-bar-outer" style="width:160px;">
+          <div class="progress-bar-inner" style="width:${Math.round(hobbyProgress(hobby)*100)}%"></div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:3px;">Toward 40h: ${Math.round(hobbyProgress(hobby)*100)}%</div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="val" style="color:${hobby.color}">${fmtH(hours)}</div>
+        <div class="lbl">Total watered</div>
+      </div>
+      <div class="stat-card">
+        <div class="val">${sessions.length}</div>
+        <div class="lbl">Sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="val">${sessions.length ? fmtH(hours / sessions.length) : '—'}</div>
+        <div class="lbl">Avg session</div>
+      </div>
+    </div>
+
+    <div class="timer-section">
+      <div class="timer-modes">
+        ${MODES.map((m,i) => `<button class="timer-mode-btn ${timer.mode===m&&timer.hobbyId===hobby.id?'active':''}" data-mode="${m}">${MODE_LABELS[i]}</button>`).join('')}
+      </div>
+      <div class="timer-ring-wrap">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle cx="55" cy="55" r="48" fill="none" stroke="#e8e3ff" stroke-width="7"/>
+          <circle id="timer-ring" cx="55" cy="55" r="48" fill="none" stroke="${hobby.color}" stroke-width="7"
+            stroke-linecap="round" stroke-dasharray="${(2*Math.PI*48).toFixed(2)}"
+            stroke-dashoffset="${(2*Math.PI*48).toFixed(2)}"
+            transform="rotate(-90 55 55)" style="transition:stroke-dashoffset 0.5s linear;"/>
+        </svg>
+        <div class="timer-display">
+          <div class="timer-time" id="timer-time">
+            ${timer.hobbyId===hobby.id ? fmtTimer(Math.max(0, timer.mode>0 ? timer.mode-timer.elapsed : timer.elapsed)) : (timer.mode===0?'00:00': fmtTimer(MODES[MODES.indexOf(timer.mode)]||MODES[1]))}
+          </div>
+          <div class="timer-label" id="timer-label">ready</div>
+        </div>
+      </div>
+      <div class="timer-controls">
+        <button class="timer-btn primary" id="timer-start">Start</button>
+        <button class="timer-btn secondary" id="timer-reset" disabled>Reset</button>
+        <button class="timer-btn log-btn" id="timer-log" disabled>Log it</button>
+      </div>
+      <div class="timer-done-banner" id="timer-done-banner" style="display:none;">
+        ✓ Session logged automatically!
+      </div>
+    </div>
+
+    <div class="water-form">
+      <h3>💧 Log manually</h3>
+      <div class="form-row">
+        <input type="number" id="water-h" placeholder="h" min="0" max="23" step="1" style="width:64px;text-align:center;">
+        <span style="font-size:13px;color:#666;">hr</span>
+        <input type="number" id="water-m" placeholder="min" min="0" max="59" step="1" style="width:72px;text-align:center;">
+        <span style="font-size:13px;color:#666;">min</span>
+        <button class="water-btn" id="water-submit">Water it</button>
+      </div>
+    </div>
+
+    ${totalHours(hobby) >= 40 && !hobby.spawned ? `
+    <div style="background:#fffbe6;border:1.5px solid #ffe58f;border-radius:12px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;">
+      <div style="font-size:28px;">🌸</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:14px;color:#7c5600;">This flower has fully bloomed!</div>
+        <div style="font-size:13px;color:#a07020;margin-top:2px;">40 hours reached. Want to keep growing this skill?</div>
+      </div>
+      <button id="spawn-gen-btn" style="background:#f5a623;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap;">Plant next gen 🌱</button>
+    </div>` : ''}
+
+
+    ${sessions.length > 0 ? `
+    <div>
+      <div class="section-label">Session history</div>
+      <div class="sessions-list">
+        ${sessions.slice().reverse().map((s, ri) => {
+          const realIdx = sessions.length - 1 - ri;
+          return `<div class="session-item">
+            <div>
+              <span class="session-hrs">+${fmtH(s.hours)}</span>
+              <span class="session-date" style="margin-left:8px;">${fmtDate(s.date)}</span>
+            </div>
+            <button class="delete-session" data-idx="${realIdx}" title="Remove this session">✕</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+
+    <div class="log-section">
+      <div class="section-label">Activity log</div>
+      <div class="log-input-row">
+        <textarea id="log-input" placeholder="What did you work on?"></textarea>
+        <button class="log-add-btn" id="log-add">Add</button>
+      </div>
+      <div class="log-entries" id="log-entries">
+        ${(hobby.logs || []).slice().reverse().map((entry, ri) => {
+          const realIdx = (hobby.logs.length - 1) - ri;
+          return `<div class="log-entry">
+            <div class="log-entry-text">${escHtml(entry.text)}</div>
+            <div class="log-entry-meta">
+              <div class="log-entry-date">${fmtDate(entry.date)}</div>
+              <button class="delete-log" data-log-idx="${realIdx}" title="Delete entry">✕</button>
+            </div>
+          </div>`;
+        }).join('') || '<div style="font-size:13px;color:#bbb;padding:6px 0;">No entries yet.</div>'}
+      </div>
+    </div>
+
+    <div class="wins-section">
+      <div class="section-label" style="color:#b8860b;">🏆 Wins & achievements</div>
+      <div class="win-input-row">
+        <input type="text" id="win-input" placeholder="What did you achieve? (e.g. played first full song)">
+        <button class="win-add-btn" id="win-add" title="Add win">★</button>
+      </div>
+      <div class="wins-list" id="wins-list">
+        ${(hobby.wins || []).slice().reverse().map((w, ri) => {
+          const realIdx = (hobby.wins.length - 1) - ri;
+          return `<div class="win-entry">
+            <div class="win-star">🏅</div>
+            <div class="win-text">${escHtml(w.text)}</div>
+            <div class="win-meta">
+              <div class="win-date">${fmtDate(w.date)}</div>
+              <button class="delete-win" data-win-idx="${realIdx}" title="Remove">✕</button>
+            </div>
+          </div>`;
+        }).join('') || '<div style="font-size:13px;color:#ddd;padding:6px 0;">No wins yet — you\'ve got this!</div>'}
+      </div>
+    </div>
+
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;">
+      <button id="delete-hobby-btn" style="background:none;border:1px solid #e0e0e0;border-radius:8px;padding:7px 14px;font-size:13px;color:#c44;cursor:pointer;">Remove this hobby</button>
+    </div>
+  `;
+
+  // ── Timer events ──
+  // Set hobby for timer if not already running on another
+  if (timer.hobbyId === null) timer.hobbyId = hobby.id;
+
+  document.querySelectorAll('.timer-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (timer.running) return;
+      if (timer.hobbyId !== hobby.id) { timerReset(); timer.hobbyId = hobby.id; }
+      timer.mode = parseInt(btn.dataset.mode);
+      timer.elapsed = 0;
+      timer._baseElapsed = 0;
+      timer.done = false;
+      document.querySelectorAll('.timer-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateTimerDisplay();
+    });
+  });
+
+  document.getElementById('timer-start').addEventListener('click', () => {
+    if (timer.hobbyId !== hobby.id) { timerReset(); timer.hobbyId = hobby.id; }
+    if (timer.running) timerPause(); else timerStart();
+  });
+
+  document.getElementById('timer-reset').addEventListener('click', () => {
+    timerReset();
+    timer.hobbyId = hobby.id;
+  });
+
+  document.getElementById('timer-log').addEventListener('click', () => {
+    if (timer.elapsed <= 0) return;
+    logTimerSession(timer.elapsed / 3600);
+  });
+
+  if (timer.hobbyId === hobby.id) updateTimerDisplay();
+
+  // ── Manual log events ──
+  document.getElementById('water-submit').addEventListener('click', () => {
+    const hrs = parseInt(document.getElementById('water-h').value) || 0;
+    const min = parseInt(document.getElementById('water-m').value) || 0;
+    const val = hrs + min / 60;
+    if (val <= 0) return;
+    const h = state.hobbies.find(x => x.id === selectedHobbyId);
+    h.sessions = h.sessions || [];
+    h.sessions.push({ hours: val, date: new Date().toISOString() });
+    saveState();
+    renderGarden();
+    renderModal();
+  });
+
+  ['water-h','water-m'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('water-submit').click();
+    });
+  });
+
+  const spawnBtn = document.getElementById('spawn-gen-btn');
+  if (spawnBtn) {
+    spawnBtn.addEventListener('click', () => {
+      const h = state.hobbies.find(x => x.id === selectedHobbyId);
+      spawnNextGen(h);
+      renderModal();
+    });
+  }
+
+  body.querySelectorAll('.delete-session').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const h = state.hobbies.find(x => x.id === selectedHobbyId);
+      h.sessions.splice(idx, 1);
+      saveState();
+      renderGarden();
+      renderModal();
+    });
+  });
+
+  // ── Wins events ──
+  const winInput = document.getElementById('win-input');
+  document.getElementById('win-add').addEventListener('click', () => {
+    const text = winInput.value.trim();
+    if (!text) return;
+    const h = state.hobbies.find(x => x.id === selectedHobbyId);
+    h.wins = h.wins || [];
+    h.wins.push({ text, date: new Date().toISOString() });
+    saveState();
+    renderModal();
+  });
+  winInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('win-add').click();
+  });
+  document.querySelectorAll('.delete-win').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.winIdx);
+      const h = state.hobbies.find(x => x.id === selectedHobbyId);
+      h.wins.splice(idx, 1);
+      saveState();
+      renderModal();
+    });
+  });
+
+  // ── Log events ──
+  const logInput = document.getElementById('log-input');
+  document.getElementById('log-add').addEventListener('click', () => {
+    const text = logInput.value.trim();
+    if (!text) return;
+    const h = state.hobbies.find(x => x.id === selectedHobbyId);
+    h.logs = h.logs || [];
+    h.logs.push({ text, date: new Date().toISOString() });
+    saveState();
+    renderModal();
+  });
+  logInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('log-add').click();
+    }
+  });
+  document.querySelectorAll('.delete-log').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.logIdx);
+      const h = state.hobbies.find(x => x.id === selectedHobbyId);
+      h.logs.splice(idx, 1);
+      saveState();
+      renderModal();
+    });
+  });
+
+  document.getElementById('delete-hobby-btn').addEventListener('click', () => {
+    if (!confirm(`Remove "${hobby.name}" from your garden?`)) return;
+    state.hobbies = state.hobbies.filter(h => h.id !== selectedHobbyId);
+    saveState();
+    renderGarden();
+    document.getElementById('overlay').classList.remove('open');
+  });
+}
+
+// ─── Add Hobby ───────────────────────────────────────────────────────────────
+let pickedColor = PALETTE[0];
+
+function openAddModal() {
+  pickedColor = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+  document.getElementById('hobby-name').value = '';
+  renderSwatches();
+  const ov = document.getElementById('overlay2');
+  ov.style.display = 'flex';
+  setTimeout(() => document.getElementById('hobby-name').focus(), 50);
+}
+
+function renderSwatches() {
+  const container = document.getElementById('color-swatches');
+  container.innerHTML = PALETTE.map(c => `
+    <div class="swatch ${c === pickedColor ? 'selected' : ''}"
+         style="background:${c}"
+         data-color="${c}"
+         title="${c}"></div>
+  `).join('');
+  container.querySelectorAll('.swatch').forEach(s => {
+    s.addEventListener('click', () => {
+      pickedColor = s.dataset.color;
+      renderSwatches();
+    });
+  });
+}
+
+document.getElementById('add-submit').addEventListener('click', () => {
+  const name = document.getElementById('hobby-name').value.trim();
+  if (!name) { document.getElementById('hobby-name').focus(); return; }
+  state.hobbies.push({ id: uid(), name, color: pickedColor, sessions: [], x: 8 + Math.random() * 84, y: Math.random() * 55 });
+  saveState();
+  renderGarden();
+  document.getElementById('overlay2').style.display = 'none';
+});
+
+document.getElementById('hobby-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('add-submit').click();
+});
+
+// ─── Close handlers ──────────────────────────────────────────────────────────
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('overlay').classList.remove('open');
+});
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay'))
+    document.getElementById('overlay').classList.remove('open');
+});
+
+document.getElementById('add-modal-close').addEventListener('click', () => {
+  document.getElementById('overlay2').style.display = 'none';
+});
+document.getElementById('overlay2').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay2'))
+    document.getElementById('overlay2').style.display = 'none';
+});
+
+document.getElementById('add-btn').addEventListener('click', openAddModal);
+
+// ─── Compare / Charts ────────────────────────────────────────────────────────
+let activeChart = null;
+
+function openCompare(tab = 'totals') {
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  const body = document.getElementById('compare-body');
+  const TABS = [
+    { id: 'totals',   label: 'Totals' },
+    { id: 'overtime', label: 'Over time' },
+    { id: 'heatmap',  label: 'Heatmap' },
+    { id: 'progress', label: 'Progress' },
+  ];
+  body.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;">
+      ${TABS.map(t => `<button class="chart-tab-btn ${t.id===tab?'chart-tab-active':''}" data-tab="${t.id}">${t.label}</button>`).join('')}
+    </div>
+    <div id="chart-area"></div>
+  `;
+  body.querySelectorAll('.chart-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => openCompare(btn.dataset.tab));
+  });
+  const area = document.getElementById('chart-area');
+  if (tab === 'totals')   chartTotals(area);
+  if (tab === 'overtime') chartOverTime(area);
+  if (tab === 'heatmap')  chartHeatmap(area);
+  if (tab === 'progress') chartProgress(area);
+  document.getElementById('compare-overlay').style.display = 'flex';
+}
+
+function hobbyLabel(h) {
+  return h.name + (h.generation > 1 ? ` (g${h.generation})` : '');
+}
+
+function chartTotals(area) {
+  const sorted = [...state.hobbies].sort((a,b) => totalHours(b) - totalHours(a));
+  const maxH = Math.max(...sorted.map(h => totalHours(h)), 0.01);
+  area.innerHTML = sorted.length === 0
+    ? '<p style="color:#aaa;font-size:14px;">No hobbies yet.</p>'
+    : sorted.map(h => {
+        const hh = totalHours(h);
+        const pct = (hh / maxH * 100).toFixed(1);
+        return `<div class="bar-row" style="margin-bottom:12px;">
+          <div class="bar-label" title="${escHtml(hobbyLabel(h))}">${escHtml(hobbyLabel(h))}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${h.color};"></div></div>
+          <div class="bar-val">${fmtH(hh)}</div>
+        </div>`;
+      }).join('');
+}
+
+function chartOverTime(area) {
+  const hobbies = state.hobbies.filter(h => (h.sessions||[]).length > 0);
+  if (!hobbies.length) { area.innerHTML = '<p style="color:#aaa;font-size:14px;">No sessions logged yet.</p>'; return; }
+  area.innerHTML = '<canvas id="chart-canvas"></canvas>';
+  const datasets = hobbies.map(h => {
+    const sessions = [...(h.sessions||[])].sort((a,b) => new Date(a.date)-new Date(b.date));
+    let cum = 0;
+    const points = sessions.map(s => ({ x: s.date.slice(0,10), y: parseFloat((cum += s.hours).toFixed(2)) }));
+    const today = new Date().toISOString().slice(0,10);
+    if (points[points.length-1].x !== today) points.push({ x: today, y: cum });
+    return { label: hobbyLabel(h), data: points, borderColor: h.color, backgroundColor: h.color+'22', tension: 0.3, fill: false, pointRadius: 3, borderWidth: 2 };
+  });
+  activeChart = new Chart(document.getElementById('chart-canvas'), {
+    type: 'line', data: { datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } } },
+      scales: {
+        x: { type: 'category', ticks: { maxTicksLimit: 8, font: { size: 11 } }, grid: { color: '#f0f0f0' } },
+        y: { title: { display: true, text: 'Cumulative hours', font: { size: 11 } }, ticks: { font: { size: 11 } }, grid: { color: '#f0f0f0' } }
+      }
+    }
+  });
+}
+
+function chartHeatmap(area) {
+  const dayMap = {};
+  state.hobbies.forEach(h => {
+    (h.sessions||[]).forEach(s => {
+      const day = s.date.slice(0,10);
+      dayMap[day] = (dayMap[day]||0) + s.hours;
+    });
+  });
+  const WEEKS = 26, CELL = 16, GAP = 3;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - today.getDay() - (WEEKS-1)*7);
+  const W = WEEKS*(CELL+GAP)+30, H = 7*(CELL+GAP)+44;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  canvas.style.cssText = 'width:100%;margin-bottom:8px;';
+  area.innerHTML = ''; area.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const maxH = Math.max(...Object.values(dayMap), 0.01);
+  const todayStr = today.toISOString().slice(0,10);
+  const DLABELS = ['Su','M','Tu','W','Th','F','Sa'];
+  ctx.font = '9px system-ui'; ctx.fillStyle = '#bbb';
+  [1,3,5].forEach(d => ctx.fillText(DLABELS[d], 0, 22 + d*(CELL+GAP) + CELL*0.75));
+  let cur = new Date(startDate);
+  for (let w = 0; w < WEEKS; w++) {
+    for (let d = 0; d < 7; d++) {
+      const ds = cur.toISOString().slice(0,10);
+      const h = dayMap[ds]||0;
+      const intensity = h > 0 ? 0.15 + (h/maxH)*0.85 : 0;
+      const x = 22 + w*(CELL+GAP), y = 8 + d*(CELL+GAP);
+      ctx.fillStyle = intensity === 0 ? '#f0f0f0' : `rgba(45,110,35,${intensity.toFixed(2)})`;
+      ctx.beginPath(); ctx.roundRect(x,y,CELL,CELL,3); ctx.fill();
+      if (ds === todayStr) { ctx.strokeStyle='#2d6e23'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.roundRect(x,y,CELL,CELL,3); ctx.stroke(); }
+      cur.setDate(cur.getDate()+1);
+    }
+  }
+  // month labels
+  cur = new Date(startDate);
+  ctx.fillStyle = '#bbb'; ctx.font = '9px system-ui';
+  let lastMonth = -1;
+  for (let w = 0; w < WEEKS; w++) {
+    const m = cur.getMonth();
+    if (m !== lastMonth) { ctx.fillText(cur.toLocaleString('default',{month:'short'}), 22+w*(CELL+GAP), H-4); lastMonth = m; }
+    cur.setDate(cur.getDate()+7);
+  }
+  area.insertAdjacentHTML('beforeend',`
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#aaa;">
+      <span>Less</span>
+      ${[0,0.2,0.4,0.65,0.9].map(i=>`<div style="width:11px;height:11px;border-radius:2px;background:${i===0?'#f0f0f0':`rgba(45,110,35,${i})`}"></div>`).join('')}
+      <span>More</span>
+    </div>`);
+}
+
+function chartProgress(area) {
+  const hobbies = [...state.hobbies].sort((a,b) => hobbyProgress(b) - hobbyProgress(a));
+  if (!hobbies.length) { area.innerHTML = '<p style="color:#aaa;font-size:14px;">No hobbies yet.</p>'; return; }
+  area.innerHTML = `
+    <div style="font-size:11px;color:#aaa;margin-bottom:14px;">Each bar shows hours toward the 40h goal. Completed generations are marked ✓.</div>
+    ${hobbies.map(h => {
+      const hh = totalHours(h);
+      const pct = Math.min(hh / 40 * 100, 100).toFixed(1);
+      const done = hh >= 40;
+      const spawned = h.spawned;
+      return `<div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:${done?'#2d6e23':'#333'};">
+            ${done && spawned ? '✓ ' : done ? '🌸 ' : ''}${escHtml(hobbyLabel(h))}
+          </span>
+          <span style="font-size:12px;color:#888;">${fmtH(hh)} / 40h</span>
+        </div>
+        <div style="height:12px;background:#ececec;border-radius:6px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:${done?'#2d6e23':h.color};border-radius:6px;transition:width 0.4s;"></div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+document.getElementById('compare-btn').addEventListener('click', () => openCompare());
+document.getElementById('compare-close').addEventListener('click', () => {
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  document.getElementById('compare-overlay').style.display = 'none';
+});
+document.getElementById('compare-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('compare-overlay')) {
+    if (activeChart) { activeChart.destroy(); activeChart = null; }
+    document.getElementById('compare-overlay').style.display = 'none';
+  }
+});
+
+// ─── Utils ───────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+(async () => {
+  state = await loadState();
+  // Spread any hobbies that landed at the default center
+  state.hobbies.filter(h => h.y === undefined).forEach(h => { h.y = Math.random() * 55; });
+  const unpositioned = state.hobbies.filter(h => h.x === undefined);
+  if (unpositioned.length > 0) {
+    unpositioned.forEach((h, i) => {
+      const spread = unpositioned.length === 1
+        ? 50
+        : 10 + (i / (unpositioned.length - 1)) * 80;
+      // add a little jitter so they don't look like a perfect line
+      h.x = Math.max(8, Math.min(92, spread + (Math.random() - 0.5) * 8));
+    });
+    saveState();
+  }
+  renderGarden();
+  renderSwatches();
+})();
+</script>
+</body>
+</html>
