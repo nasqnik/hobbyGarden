@@ -1,8 +1,9 @@
 # Hobby Garden
 
-![Hobby Garden](screenshot.png)
-
 A locally hosted app where your hobbies grow as flowers. The more time you spend on something, the bigger and more detailed its flower becomes.
+
+The app is fully vibe-coded, because I wanted something working quickly instead of procrasting and building myself a tool. 
+So all of the features that I've added are for my convenience.
 
 ## Running it
 
@@ -52,3 +53,6 @@ Flower patterns (petal shape, streaks, spots, bicolor, tip color) unlock at the 
 - **Click and drag** a flower — reposition it in the garden (position saves automatically)
 - **+ Add hobby** button — create a new flower with a name and color
 - **⚖ Compare** button — open the comparison panel across all hobbies
+
+## This is mine, create yours
+![Hobby Garden](screenshot.png)
