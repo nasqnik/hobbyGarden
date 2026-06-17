@@ -33,6 +33,7 @@ Everything is saved to `data.json` in this folder. It's plain JSON — you can b
 - **40h goal system** — progress tracks toward 40 hours; on completion you're prompted to spawn the next generation of the same flower as a fresh bud
 - **Drag to reposition** — click and drag any flower to move it anywhere in the garden; position saves automatically
 - **Compare view** — standalone comparison panel with four chart types: total hours (bar), hours over time (line), heatmap (GitHub-style activity grid), and goal progress (bar toward 40h per hobby)
+- **Ambient bird sounds** — play/pause background birdsong while you work
 
 ## Growth stages
 
@@ -53,6 +54,11 @@ Flower patterns (petal shape, streaks, spots, bicolor, tip color) unlock at the 
 - **Click and drag** a flower — reposition it in the garden (position saves automatically)
 - **+ Add hobby** button — create a new flower with a name and color
 - **⚖ Compare** button — open the comparison panel across all hobbies
+- **🔇/🔊 Birds** button — toggle ambient bird sounds
 
 ## This is mine, create yours
 ![Hobby Garden](screenshot.png)
+
+## Credits
+
+- Bird sounds by [hargissssound](https://freesound.org/people/hargissssound/) on Freesound
