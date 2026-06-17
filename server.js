@@ -4,8 +4,9 @@ const path = require('path');
 
 const PORT      = 3000;
 const DIR       = __dirname;
-const DATA_FILE = path.join(DIR, 'data.json');
-const HTML_FILE = path.join(DIR, 'index.html');
+const DATA_FILE  = path.join(DIR, 'data.json');
+const HTML_FILE  = path.join(DIR, 'index.html');
+const AUDIO_FILE = path.join(DIR, 'birds.wav');
 
 http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,6 +22,13 @@ http.createServer((req, res) => {
     fs.readFile(DATA_FILE, 'utf8', (err, data) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(err ? '{"hobbies":[]}' : data);
+    });
+
+  } else if (req.method === 'GET' && req.url === '/birds.wav') {
+    fs.readFile(AUDIO_FILE, (err, data) => {
+      if (err) { res.writeHead(404); return res.end('not found'); }
+      res.writeHead(200, { 'Content-Type': 'audio/wav' });
+      res.end(data);
     });
 
   } else if (req.method === 'POST' && req.url === '/data') {

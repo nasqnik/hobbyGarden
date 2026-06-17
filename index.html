@@ -598,7 +598,11 @@
   <p>Click the button below to plant your first hobby</p>
 </div>
 
+<!-- Ambient audio -->
+<audio id="birds-audio" src="/birds.wav" loop></audio>
+
 <!-- Buttons -->
+<button id="sound-btn" style="position:fixed;bottom:22px;left:160px;background:rgba(255,255,255,0.93);border:2px solid rgba(0,0,0,0.1);border-radius:28px;padding:10px 20px;font-size:14px;font-weight:600;color:#2d6e23;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.15s,box-shadow 0.15s;z-index:20;">🔇 Birds</button>
 <button id="compare-btn" style="position:fixed;bottom:22px;left:24px;background:rgba(255,255,255,0.93);border:2px solid rgba(0,0,0,0.1);border-radius:28px;padding:10px 20px;font-size:14px;font-weight:600;color:#2d6e23;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.15s,box-shadow 0.15s;z-index:20;">⚖ Compare</button>
 <button id="add-btn">＋ Plant a hobby</button>
 
@@ -1658,6 +1662,22 @@ function chartProgress(area) {
 }
 
 document.getElementById('compare-btn').addEventListener('click', () => openCompare());
+
+(function() {
+  const btn   = document.getElementById('sound-btn');
+  const audio = document.getElementById('birds-audio');
+  let playing = false;
+  btn.addEventListener('click', () => {
+    if (playing) {
+      audio.pause();
+      btn.textContent = '🔇 Birds';
+    } else {
+      audio.play();
+      btn.textContent = '🔊 Birds';
+    }
+    playing = !playing;
+  });
+})();
 document.getElementById('compare-close').addEventListener('click', () => {
   if (activeChart) { activeChart.destroy(); activeChart = null; }
   document.getElementById('compare-overlay').style.display = 'none';
