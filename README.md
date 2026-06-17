@@ -2,8 +2,8 @@
 
 A locally hosted app where your hobbies grow as flowers. The more time you spend on something, the bigger and more detailed its flower becomes.
 
-The app is fully vibe-coded, because I wanted something working quickly instead of procrasting and building myself a tool. 
-All of the features that I've added are for my convenience.
+The app is fully vibe-coded, because I wanted something working quickly instead of procrastinating and building myself a tool. 
+All of the features that I've added are for my convenience. I wanted an app that would specifically focus on time spent instead of the fact of reaching a goal.
 
 ## Running it
 
