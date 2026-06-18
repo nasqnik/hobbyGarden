@@ -239,26 +239,64 @@
       align-items: center;
       gap: 12px;
     }
-    .timer-modes {
+    .timer-setup {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .timer-presets {
       display: flex;
       gap: 6px;
     }
-    .timer-mode-btn {
+    .timer-preset-btn {
       background: none;
       border: 1.5px solid #ccc;
       border-radius: 20px;
-      padding: 4px 12px;
+      padding: 4px 14px;
       font-size: 12px;
       font-weight: 600;
       color: #888;
       cursor: pointer;
       transition: all 0.12s;
     }
-    .timer-mode-btn.active {
+    .timer-preset-btn.active {
       background: #6c5ce7;
       border-color: #6c5ce7;
       color: #fff;
     }
+    .timer-slider {
+      width: 100%;
+      accent-color: #6c5ce7;
+      cursor: pointer;
+    }
+    .timer-slider-labels {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      font-size: 10px;
+      color: #bbb;
+      font-weight: 600;
+      margin-top: -4px;
+    }
+    .timer-time-input {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2d1f6e;
+      letter-spacing: -0.5px;
+      font-variant-numeric: tabular-nums;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      text-align: center;
+      width: 90px;
+      outline: none;
+      cursor: text;
+      transition: border-color 0.15s;
+    }
+    .timer-time-input:focus { border-bottom-color: #6c5ce7; }
+    .timer-time-input[readonly] { cursor: default; }
     .timer-ring-wrap {
       position: relative;
       width: 110px;
@@ -403,7 +441,7 @@
     .delete-win:hover { color: #e44; }
 
     /* activity log */
-    .log-section { margin-bottom: 18px; }
+    .log-section { margin-top: 18px; margin-bottom: 18px; }
     .log-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
     .log-input-row textarea {
       flex: 1;
@@ -598,8 +636,28 @@
   <p>Click the button below to plant your first hobby</p>
 </div>
 
+<!-- Congrats popup -->
+<div id="congrats-overlay" style="display:none;position:fixed;inset:0;z-index:200;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px);">
+  <div style="background:#fff;border-radius:24px;padding:36px 40px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,0.25);max-width:340px;width:90%;">
+    <div style="font-size:48px;margin-bottom:12px;">🌸</div>
+    <div style="font-size:22px;font-weight:700;color:#2d1f6e;margin-bottom:8px;">Session complete!</div>
+    <div id="congrats-msg" style="font-size:14px;color:#777;margin-bottom:24px;line-height:1.5;"></div>
+    <button id="congrats-close" style="background:#6c5ce7;color:#fff;border:none;border-radius:12px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;">Keep growing 🌱</button>
+  </div>
+</div>
+
 <!-- Ambient audio -->
 <audio id="birds-audio" src="/birds.wav" loop></audio>
+
+<!-- Floating timer widget -->
+<div id="timer-widget" style="display:none;position:fixed;bottom:80px;left:24px;z-index:90;background:rgba(255,255,255,0.96);border:2px solid rgba(108,92,231,0.3);border-radius:18px;padding:12px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);cursor:pointer;min-width:160px;backdrop-filter:blur(6px);transition:transform 0.15s,box-shadow 0.15s;">
+  <div style="font-size:11px;font-weight:600;color:#9b8fd4;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;" id="tw-name"></div>
+  <div style="font-size:28px;font-weight:700;color:#2d1f6e;font-variant-numeric:tabular-nums;letter-spacing:-0.5px;" id="tw-time">00:00</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:8px;">
+    <span style="font-size:11px;color:#9b8fd4;font-weight:600;" id="tw-label">focus</span>
+    <button id="tw-stop" style="background:#fee;border:1.5px solid #fcc;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:600;color:#c0392b;cursor:pointer;" onclick="event.stopPropagation();timerReset();updateWidget();">Stop</button>
+  </div>
+</div>
 
 <!-- Buttons -->
 <button id="sound-btn" style="position:fixed;bottom:22px;left:160px;background:rgba(255,255,255,0.93);border:2px solid rgba(0,0,0,0.1);border-radius:28px;padding:10px 20px;font-size:14px;font-weight:600;color:#2d6e23;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.15s,box-shadow 0.15s;z-index:20;">🔇 Birds</button>
@@ -732,8 +790,6 @@ const timer = {
   interval: null,
   done: false,
 };
-const MODES = [0, 25*60, 45*60, 50*60, 60*60];
-const MODE_LABELS = ['Free','25m','45m','50m','1h'];
 
 function timerTick() {
   if (!timer.running) return;
@@ -744,6 +800,7 @@ function timerTick() {
     timerStop(true);
   }
   updateTimerDisplay();
+  updateWidget();
 }
 
 function timerStart() {
@@ -753,6 +810,7 @@ function timerStart() {
   timer.running = true;
   timer.interval = setInterval(timerTick, 500);
   updateTimerDisplay();
+  updateWidget();
 }
 
 function timerPause() {
@@ -760,6 +818,7 @@ function timerPause() {
   clearInterval(timer.interval);
   timer.interval = null;
   updateTimerDisplay();
+  updateWidget();
 }
 
 function playChime() {
@@ -791,7 +850,17 @@ function timerStop(finished = false) {
   if (finished) {
     playChime();
     const hours = timer.elapsed / 3600;
-    if (hours > 0 && timer.hobbyId) logTimerSession(hours);
+    if (hours > 0 && timer.hobbyId) {
+      const h = state.hobbies.find(x => x.id === timer.hobbyId);
+      const hobbyName = h ? h.name : '';
+      logTimerSession(hours); // resets timer.elapsed to 0
+      const totalH = h ? totalHours(h) : 0;
+      document.getElementById('congrats-msg').textContent =
+        `You put in ${fmtH(hours)}${hobbyName ? ' on ' + hobbyName : ''}. Total: ${fmtH(totalH)}.`;
+      document.getElementById('overlay').classList.remove('open');
+      updateWidget(); // elapsed is 0 now, widget hides cleanly
+      document.getElementById('congrats-overlay').style.display = 'flex';
+    }
   }
   updateTimerDisplay();
 }
@@ -825,18 +894,30 @@ function fmtTimer(sec) {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
+function updateWidget() {
+  const w = document.getElementById('timer-widget');
+  const active = (timer.running || (timer.elapsed > 0 && !timer.done));
+  const modalOpen = document.getElementById('overlay').classList.contains('open');
+  w.style.display = (active && !modalOpen) ? 'block' : 'none';
+  if (!active) return;
+  const h = state.hobbies.find(x => x.id === timer.hobbyId);
+  document.getElementById('tw-name').textContent = h ? h.name : '';
+  const displayed = timer.mode > 0 ? timer.mode - timer.elapsed : timer.elapsed;
+  document.getElementById('tw-time').textContent = fmtTimer(Math.max(0, displayed));
+  document.getElementById('tw-label').textContent = timer.running ? 'focus' : 'paused';
+}
+
 function updateTimerDisplay() {
   const ring = document.getElementById('timer-ring');
   const timeEl = document.getElementById('timer-time');
   const labelEl = document.getElementById('timer-label');
   const startBtn = document.getElementById('timer-start');
   const resetBtn = document.getElementById('timer-reset');
-  const logBtn = document.getElementById('timer-log');
   const banner = document.getElementById('timer-done-banner');
   if (!timeEl) return;
 
   const displayed = timer.mode > 0 ? timer.mode - timer.elapsed : timer.elapsed;
-  timeEl.textContent = fmtTimer(Math.max(0, displayed));
+  timeEl.value = fmtTimer(Math.max(0, displayed));
 
   if (timer.mode > 0) {
     const pct = timer.elapsed / timer.mode;
@@ -855,7 +936,12 @@ function updateTimerDisplay() {
     startBtn.disabled = timer.done;
   }
   if (resetBtn) resetBtn.disabled = timer.elapsed === 0 && !timer.done;
-  if (logBtn) logBtn.disabled = timer.elapsed === 0 || timer.running;
+  const logBtn = document.getElementById('timer-log');
+  if (logBtn) {
+    const isFree = timer.mode === 0;
+    logBtn.style.display = isFree && timer.elapsed > 0 ? 'inline-block' : 'none';
+    logBtn.disabled = timer.running;
+  }
   if (banner) banner.style.display = timer.done ? 'block' : 'none';
 }
 
@@ -1155,6 +1241,7 @@ function openModal(id) {
   selectedHobbyId = id;
   renderModal();
   document.getElementById('overlay').classList.add('open');
+  document.getElementById('timer-widget').style.display = 'none';
 }
 
 function renderModal() {
@@ -1200,8 +1287,16 @@ function renderModal() {
     </div>
 
     <div class="timer-section">
-      <div class="timer-modes">
-        ${MODES.map((m,i) => `<button class="timer-mode-btn ${timer.mode===m&&timer.hobbyId===hobby.id?'active':''}" data-mode="${m}">${MODE_LABELS[i]}</button>`).join('')}
+      <div class="timer-setup">
+        <div class="timer-presets">
+          <button class="timer-preset-btn" data-min="0">Free</button>
+          <button class="timer-preset-btn" data-min="25">25m</button>
+          <button class="timer-preset-btn" data-min="50">50m</button>
+        </div>
+        <div id="timer-slider-wrap" style="width:100%;display:flex;flex-direction:column;gap:4px;">
+          <input type="range" class="timer-slider" id="timer-slider" min="1" max="120" value="${timer.hobbyId===hobby.id && timer.mode>0 ? Math.round(timer.mode/60) : 25}">
+          <div class="timer-slider-labels"><span>1m</span><span>30m</span><span>1h</span><span>2h</span></div>
+        </div>
       </div>
       <div class="timer-ring-wrap">
         <svg width="110" height="110" viewBox="0 0 110 110">
@@ -1212,19 +1307,18 @@ function renderModal() {
             transform="rotate(-90 55 55)" style="transition:stroke-dashoffset 0.5s linear;"/>
         </svg>
         <div class="timer-display">
-          <div class="timer-time" id="timer-time">
-            ${timer.hobbyId===hobby.id ? fmtTimer(Math.max(0, timer.mode>0 ? timer.mode-timer.elapsed : timer.elapsed)) : (timer.mode===0?'00:00': fmtTimer(MODES[MODES.indexOf(timer.mode)]||MODES[1]))}
-          </div>
+          <input class="timer-time-input" id="timer-time" type="text" readonly
+            value="${timer.hobbyId===hobby.id ? fmtTimer(Math.max(0, timer.mode>0 ? timer.mode-timer.elapsed : timer.elapsed)) : '25:00'}">
           <div class="timer-label" id="timer-label">ready</div>
         </div>
       </div>
       <div class="timer-controls">
         <button class="timer-btn primary" id="timer-start">Start</button>
         <button class="timer-btn secondary" id="timer-reset" disabled>Reset</button>
-        <button class="timer-btn log-btn" id="timer-log" disabled>Log it</button>
+        <button class="timer-btn log-btn" id="timer-log" style="display:none;" disabled>Log it</button>
       </div>
       <div class="timer-done-banner" id="timer-done-banner" style="display:none;">
-        ✓ Session logged automatically!
+        ✓ Session logged!
       </div>
     </div>
 
@@ -1317,19 +1411,56 @@ function renderModal() {
   // Set hobby for timer if not already running on another
   if (timer.hobbyId === null) timer.hobbyId = hobby.id;
 
-  document.querySelectorAll('.timer-mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (timer.running) return;
-      if (timer.hobbyId !== hobby.id) { timerReset(); timer.hobbyId = hobby.id; }
-      timer.mode = parseInt(btn.dataset.mode);
-      timer.elapsed = 0;
-      timer._baseElapsed = 0;
-      timer.done = false;
-      document.querySelectorAll('.timer-mode-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateTimerDisplay();
-    });
+  function setTimerMinutes(min) {
+    if (timer.running) return;
+    if (timer.hobbyId !== hobby.id) { timerReset(); timer.hobbyId = hobby.id; }
+    timer.mode = min === 0 ? 0 : min * 60;
+    timer.elapsed = 0;
+    timer._baseElapsed = 0;
+    timer.done = false;
+    const slider = document.getElementById('timer-slider');
+    if (slider && min > 0) slider.value = min;
+    const sliderWrap = document.getElementById('timer-slider-wrap');
+    if (sliderWrap) sliderWrap.style.display = min === 0 ? 'none' : 'flex';
+    document.querySelectorAll('.timer-preset-btn').forEach(b =>
+      b.classList.toggle('active', parseInt(b.dataset.min) === min));
+    updateTimerDisplay();
+  }
+
+  document.querySelectorAll('.timer-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => setTimerMinutes(parseInt(btn.dataset.min)));
   });
+
+  const slider = document.getElementById('timer-slider');
+  slider.addEventListener('input', () => {
+    setTimerMinutes(parseInt(slider.value));
+  });
+
+  const timeInput = document.getElementById('timer-time');
+  timeInput.addEventListener('click', () => {
+    if (timer.running || timer.elapsed > 0) return;
+    timeInput.removeAttribute('readonly');
+    timeInput.focus();
+    timeInput.select();
+  });
+  timeInput.addEventListener('blur', () => {
+    timeInput.setAttribute('readonly', true);
+    const parts = timeInput.value.split(':').map(Number);
+    let totalMin = 0;
+    if (parts.length === 2) totalMin = parts[0] + parts[1] / 60;
+    else if (parts.length === 3) totalMin = parts[0] * 60 + parts[1] + parts[2] / 60;
+    totalMin = Math.max(1, Math.min(120, Math.round(totalMin)));
+    setTimerMinutes(totalMin);
+  });
+  timeInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') timeInput.blur();
+  });
+
+  // Set initial slider visibility and active pill on open
+  const currentMin = timer.hobbyId === hobby.id ? (timer.mode === 0 ? 0 : Math.round(timer.mode / 60)) : 0;
+  document.getElementById('timer-slider-wrap').style.display = currentMin === 0 ? 'none' : 'flex';
+  document.querySelectorAll('.timer-preset-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.min) === currentMin));
 
   document.getElementById('timer-start').addEventListener('click', () => {
     if (timer.hobbyId !== hobby.id) { timerReset(); timer.hobbyId = hobby.id; }
@@ -1492,10 +1623,16 @@ document.getElementById('hobby-name').addEventListener('keydown', e => {
 // ─── Close handlers ──────────────────────────────────────────────────────────
 document.getElementById('modal-close').addEventListener('click', () => {
   document.getElementById('overlay').classList.remove('open');
+  updateWidget();
 });
 document.getElementById('overlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('overlay'))
+  if (e.target === document.getElementById('overlay')) {
     document.getElementById('overlay').classList.remove('open');
+    updateWidget();
+  }
+});
+document.getElementById('timer-widget').addEventListener('click', () => {
+  if (timer.hobbyId) openModal(timer.hobbyId);
 });
 
 document.getElementById('add-modal-close').addEventListener('click', () => {
@@ -1662,6 +1799,14 @@ function chartProgress(area) {
 }
 
 document.getElementById('compare-btn').addEventListener('click', () => openCompare());
+
+document.getElementById('congrats-close').addEventListener('click', () => {
+  document.getElementById('congrats-overlay').style.display = 'none';
+});
+document.getElementById('congrats-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('congrats-overlay'))
+    document.getElementById('congrats-overlay').style.display = 'none';
+});
 
 (function() {
   const btn   = document.getElementById('sound-btn');

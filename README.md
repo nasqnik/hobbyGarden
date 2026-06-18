@@ -25,7 +25,7 @@ Everything is saved to `data.json` in this folder. It's plain JSON — you can b
 
 - **Flowers grow** based on total time logged — 6 stages from seed to flourishing bloom
 - **Each flower is unique** — petal shape, pattern, and center style are generated from the hobby's ID and revealed as it blooms
-- **Timer** — built-in Pomodoro-style timer with free, 25m, 45m, 50m, and 1h modes; plays a chime and logs the session automatically when a countdown finishes
+- **Timer** — Pomodoro-style timer with free mode and countdown mode; set duration with a slider or by typing directly into the display, with 25m and 50m quick presets; plays a chime, logs the session automatically, and shows a congratulations popup when a countdown finishes; closing the modal while a timer runs leaves a floating widget on the garden so you can keep working
 - **Manual logging** — log hours and minutes directly without using the timer
 - **Session history** — see every watering session per hobby with the option to delete individual entries
 - **Activity log** — write notes on what you did each session, stored per hobby
