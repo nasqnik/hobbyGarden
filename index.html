@@ -1698,16 +1698,19 @@ function chartOverTime(area) {
   const hobbies = state.hobbies.filter(h => (h.sessions||[]).length > 0);
   if (!hobbies.length) { area.innerHTML = '<p style="color:#aaa;font-size:14px;">No sessions logged yet.</p>'; return; }
   area.innerHTML = '<canvas id="chart-canvas"></canvas>';
+  const today = new Date().toISOString().slice(0,10);
+  const allDates = new Set([today]);
   const datasets = hobbies.map(h => {
     const sessions = [...(h.sessions||[])].sort((a,b) => new Date(a.date)-new Date(b.date));
     let cum = 0;
     const points = sessions.map(s => ({ x: s.date.slice(0,10), y: parseFloat((cum += s.hours).toFixed(2)) }));
-    const today = new Date().toISOString().slice(0,10);
     if (points[points.length-1].x !== today) points.push({ x: today, y: cum });
-    return { label: hobbyLabel(h), data: points, borderColor: h.color, backgroundColor: h.color+'22', tension: 0.3, fill: false, pointRadius: 3, borderWidth: 2 };
+    points.forEach(p => allDates.add(p.x));
+    return { label: hobbyLabel(h), data: points, borderColor: h.color, backgroundColor: h.color+'22', tension: 0, fill: false, pointRadius: 3, borderWidth: 2 };
   });
+  const labels = [...allDates].sort();
   activeChart = new Chart(document.getElementById('chart-canvas'), {
-    type: 'line', data: { datasets },
+    type: 'line', data: { labels, datasets },
     options: {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
