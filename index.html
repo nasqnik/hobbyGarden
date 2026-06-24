@@ -147,6 +147,22 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.12);
       z-index: 20;
     }
+    #total-badge {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: rgba(255,255,255,0.88);
+      border-radius: 12px;
+      padding: 7px 16px;
+      font-size: 12px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      z-index: 20;
+    }
+    #total-badge .val { font-weight: 700; color: #2d6e23; font-size: 13px; }
     .stage-pill {
       display: flex;
       align-items: center;
@@ -250,7 +266,7 @@
       display: flex;
       gap: 6px;
     }
-    .timer-preset-btn {
+    .qt-preset-btn {
       background: none;
       border: 1.5px solid #ccc;
       border-radius: 20px;
@@ -261,7 +277,7 @@
       cursor: pointer;
       transition: all 0.12s;
     }
-    .timer-preset-btn.active {
+    .qt-preset-btn.active {
       background: #6c5ce7;
       border-color: #6c5ce7;
       color: #fff;
@@ -310,13 +326,6 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-    }
-    .timer-time {
-      font-size: 24px;
-      font-weight: 700;
-      color: #2d1f6e;
-      letter-spacing: -0.5px;
-      font-variant-numeric: tabular-nums;
     }
     .timer-label {
       font-size: 10px;
@@ -626,6 +635,9 @@
   <span class="stage-pill"><span class="stage-dot" style="background:#FFD700;"></span><span>thrive (40h+)</span></span>
 </div>
 
+<!-- Total hours badge -->
+<div id="total-badge">🌱 <span class="val" id="total-badge-val">0h</span> watered total</div>
+
 <!-- Garden -->
 <div id="garden"></div>
 
@@ -646,6 +658,54 @@
   </div>
 </div>
 
+<!-- Quick Timer (standalone, hobby-agnostic) -->
+<div id="quick-timer-overlay" style="display:none;position:fixed;inset:0;background:var(--modal-bg);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+  <div style="background:#fff;border-radius:20px;padding:28px;width:380px;max-width:92vw;box-shadow:0 24px 64px rgba(0,0,0,0.28);position:relative;">
+    <button class="modal-close" id="quick-timer-close">✕</button>
+    <div class="modal-title" style="margin-bottom:18px;">⏱ Quick Timer</div>
+
+    <div style="margin-bottom:16px;">
+      <div class="section-label">Watering which hobby?</div>
+      <select id="qt-hobby-select" style="width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid #ddd;font-size:14px;font-weight:600;color:#333;background:#fafafa;"></select>
+    </div>
+
+    <div class="timer-section">
+      <div class="timer-setup">
+        <div class="timer-presets">
+          <button class="qt-preset-btn" data-min="0">Free</button>
+          <button class="qt-preset-btn" data-min="25">25m</button>
+          <button class="qt-preset-btn" data-min="50">50m</button>
+        </div>
+        <div id="qt-slider-wrap" style="width:100%;display:flex;flex-direction:column;gap:4px;">
+          <input type="range" class="timer-slider" id="qt-slider" min="1" max="120" value="25">
+          <div class="timer-slider-labels"><span>1m</span><span>30m</span><span>1h</span><span>2h</span></div>
+        </div>
+      </div>
+      <div class="timer-ring-wrap">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle cx="55" cy="55" r="48" fill="none" stroke="#e8e3ff" stroke-width="7"/>
+          <circle id="qt-ring" cx="55" cy="55" r="48" fill="none" stroke="#6c5ce7" stroke-width="7"
+            stroke-linecap="round" stroke-dasharray="${(2*Math.PI*48).toFixed(2)}"
+            stroke-dashoffset="${(2*Math.PI*48).toFixed(2)}"
+            transform="rotate(-90 55 55)" style="transition:stroke-dashoffset 0.5s linear;"/>
+        </svg>
+        <div class="timer-display">
+          <input class="timer-time-input" id="qt-time" type="text" readonly value="25:00">
+          <div class="timer-label" id="qt-label">ready</div>
+        </div>
+      </div>
+      <div class="timer-controls">
+        <button class="timer-btn primary" id="qt-start">Start</button>
+        <button class="timer-btn secondary" id="qt-reset" disabled>Reset</button>
+        <button class="timer-btn log-btn" id="qt-log" style="display:none;" disabled>Log it</button>
+      </div>
+      <div class="timer-done-banner" id="qt-done-banner" style="display:none;">
+        ✓ Session logged!
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Ambient audio -->
 <audio id="birds-audio" src="/birds.wav" loop></audio>
 
@@ -653,14 +713,18 @@
 <div id="timer-widget" style="display:none;position:fixed;bottom:80px;left:24px;z-index:90;background:rgba(255,255,255,0.96);border:2px solid rgba(108,92,231,0.3);border-radius:18px;padding:12px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);cursor:pointer;min-width:160px;backdrop-filter:blur(6px);transition:transform 0.15s,box-shadow 0.15s;">
   <div style="font-size:11px;font-weight:600;color:#9b8fd4;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;" id="tw-name"></div>
   <div style="font-size:28px;font-weight:700;color:#2d1f6e;font-variant-numeric:tabular-nums;letter-spacing:-0.5px;" id="tw-time">00:00</div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:8px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:6px;">
     <span style="font-size:11px;color:#9b8fd4;font-weight:600;" id="tw-label">focus</span>
-    <button id="tw-stop" style="background:#fee;border:1.5px solid #fcc;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:600;color:#c0392b;cursor:pointer;" onclick="event.stopPropagation();timerReset();updateWidget();">Stop</button>
+    <div style="display:flex;gap:6px;">
+      <button id="tw-discard" style="display:none;background:#f0f0f0;border:1.5px solid #ddd;border-radius:10px;padding:3px 8px;font-size:11px;font-weight:600;color:#888;cursor:pointer;" title="Discard without logging">✕</button>
+      <button id="tw-stop" style="background:#fee;border:1.5px solid #fcc;border-radius:10px;padding:3px 10px;font-size:11px;font-weight:600;color:#c0392b;cursor:pointer;">Pause</button>
+    </div>
   </div>
 </div>
 
 <!-- Buttons -->
 <button id="sound-btn" style="position:fixed;bottom:22px;left:160px;background:rgba(255,255,255,0.93);border:2px solid rgba(0,0,0,0.1);border-radius:28px;padding:10px 20px;font-size:14px;font-weight:600;color:#2d6e23;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.15s,box-shadow 0.15s;z-index:20;">🔇 Birds</button>
+<button id="quick-timer-btn" style="position:fixed;bottom:22px;left:268px;background:rgba(255,255,255,0.93);border:2px solid rgba(0,0,0,0.1);border-radius:28px;padding:10px 20px;font-size:14px;font-weight:600;color:#6c5ce7;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.15s,box-shadow 0.15s;z-index:20;">⏱ Timer</button>
 <button id="compare-btn" style="position:fixed;bottom:22px;left:24px;background:rgba(255,255,255,0.93);border:2px solid rgba(0,0,0,0.1);border-radius:28px;padding:10px 20px;font-size:14px;font-weight:600;color:#2d6e23;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);transition:transform 0.15s,box-shadow 0.15s;z-index:20;">⚖ Compare</button>
 <button id="add-btn">＋ Plant a hobby</button>
 
@@ -779,6 +843,13 @@ function fmtDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function localDay(d) {
+  d = (d instanceof Date) ? d : new Date(d);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 // ─── Timer State ─────────────────────────────────────────────────────────────
 const timer = {
@@ -875,6 +946,17 @@ function timerReset() {
   updateTimerDisplay();
 }
 
+function stopAndLogTimer() {
+  timer.running = false;
+  clearInterval(timer.interval);
+  timer.interval = null;
+  if (timer.elapsed > 0 && timer.hobbyId) {
+    logTimerSession(timer.elapsed / 3600); // logs and resets
+  } else {
+    timerReset();
+  }
+}
+
 function logTimerSession(hours) {
   const h = state.hobbies.find(x => x.id === timer.hobbyId);
   if (!h) return;
@@ -898,22 +980,53 @@ function updateWidget() {
   const w = document.getElementById('timer-widget');
   const active = (timer.running || (timer.elapsed > 0 && !timer.done));
   const modalOpen = document.getElementById('overlay').classList.contains('open');
-  w.style.display = (active && !modalOpen) ? 'block' : 'none';
+  const quickTimerOpen = document.getElementById('quick-timer-overlay').style.display === 'flex';
+  w.style.display = (active && !modalOpen && !quickTimerOpen) ? 'block' : 'none';
   if (!active) return;
   const h = state.hobbies.find(x => x.id === timer.hobbyId);
   document.getElementById('tw-name').textContent = h ? h.name : '';
   const displayed = timer.mode > 0 ? timer.mode - timer.elapsed : timer.elapsed;
   document.getElementById('tw-time').textContent = fmtTimer(Math.max(0, displayed));
   document.getElementById('tw-label').textContent = timer.running ? 'focus' : 'paused';
+  const stopBtn = document.getElementById('tw-stop');
+  const discardBtn = document.getElementById('tw-discard');
+  if (timer.running) {
+    stopBtn.textContent = 'Pause';
+    stopBtn.style.background = '#fee';
+    stopBtn.style.borderColor = '#fcc';
+    stopBtn.style.color = '#c0392b';
+    discardBtn.style.display = 'none';
+  } else {
+    stopBtn.textContent = 'Log';
+    stopBtn.style.background = '#e6ffe9';
+    stopBtn.style.borderColor = '#b7e8bd';
+    stopBtn.style.color = '#2d6e23';
+    discardBtn.style.display = 'inline-block';
+  }
+}
+
+function widgetActionClick() {
+  if (timer.running) {
+    timerPause();
+  } else {
+    stopAndLogTimer();
+  }
+  updateWidget();
+}
+
+function widgetDiscardClick() {
+  timerReset();
+  updateWidget();
 }
 
 function updateTimerDisplay() {
-  const ring = document.getElementById('timer-ring');
-  const timeEl = document.getElementById('timer-time');
-  const labelEl = document.getElementById('timer-label');
-  const startBtn = document.getElementById('timer-start');
-  const resetBtn = document.getElementById('timer-reset');
-  const banner = document.getElementById('timer-done-banner');
+  const ring = document.getElementById('qt-ring');
+  const timeEl = document.getElementById('qt-time');
+  const labelEl = document.getElementById('qt-label');
+  const startBtn = document.getElementById('qt-start');
+  const resetBtn = document.getElementById('qt-reset');
+  const logBtn = document.getElementById('qt-log');
+  const banner = document.getElementById('qt-done-banner');
   if (!timeEl) return;
 
   const displayed = timer.mode > 0 ? timer.mode - timer.elapsed : timer.elapsed;
@@ -931,18 +1044,13 @@ function updateTimerDisplay() {
     labelEl.textContent = timer.running ? 'running' : (timer.elapsed > 0 ? 'paused' : 'ready');
   }
 
-  if (startBtn) {
-    startBtn.textContent = timer.running ? 'Pause' : (timer.elapsed > 0 || timer.done ? 'Resume' : 'Start');
-    startBtn.disabled = timer.done;
-  }
-  if (resetBtn) resetBtn.disabled = timer.elapsed === 0 && !timer.done;
-  const logBtn = document.getElementById('timer-log');
-  if (logBtn) {
-    const isFree = timer.mode === 0;
-    logBtn.style.display = isFree && timer.elapsed > 0 ? 'inline-block' : 'none';
-    logBtn.disabled = timer.running;
-  }
-  if (banner) banner.style.display = timer.done ? 'block' : 'none';
+  startBtn.textContent = timer.running ? 'Pause' : (timer.elapsed > 0 || timer.done ? 'Resume' : 'Start');
+  startBtn.disabled = timer.done;
+  resetBtn.disabled = timer.elapsed === 0 && !timer.done;
+  const isFree = timer.mode === 0;
+  logBtn.style.display = isFree && timer.elapsed > 0 ? 'inline-block' : 'none';
+  logBtn.disabled = timer.running;
+  banner.style.display = timer.done ? 'block' : 'none';
 }
 
 // ─── Seeded RNG (mulberry32) ─────────────────────────────────────────────────
@@ -1210,6 +1318,9 @@ function renderGarden() {
 
   hint.style.display = hobbies.length === 0 ? 'block' : 'none';
 
+  const grandTotal = hobbies.reduce((sum, h) => sum + totalHours(h), 0);
+  document.getElementById('total-badge-val').textContent = fmtH(grandTotal);
+
   garden.innerHTML = '';
   hobbies.forEach(hobby => {
     const hours = totalHours(hobby);
@@ -1283,42 +1394,6 @@ function renderModal() {
       <div class="stat-card">
         <div class="val">${sessions.length ? fmtH(hours / sessions.length) : '—'}</div>
         <div class="lbl">Avg session</div>
-      </div>
-    </div>
-
-    <div class="timer-section">
-      <div class="timer-setup">
-        <div class="timer-presets">
-          <button class="timer-preset-btn" data-min="0">Free</button>
-          <button class="timer-preset-btn" data-min="25">25m</button>
-          <button class="timer-preset-btn" data-min="50">50m</button>
-        </div>
-        <div id="timer-slider-wrap" style="width:100%;display:flex;flex-direction:column;gap:4px;">
-          <input type="range" class="timer-slider" id="timer-slider" min="1" max="120" value="${timer.hobbyId===hobby.id && timer.mode>0 ? Math.round(timer.mode/60) : 25}">
-          <div class="timer-slider-labels"><span>1m</span><span>30m</span><span>1h</span><span>2h</span></div>
-        </div>
-      </div>
-      <div class="timer-ring-wrap">
-        <svg width="110" height="110" viewBox="0 0 110 110">
-          <circle cx="55" cy="55" r="48" fill="none" stroke="#e8e3ff" stroke-width="7"/>
-          <circle id="timer-ring" cx="55" cy="55" r="48" fill="none" stroke="${hobby.color}" stroke-width="7"
-            stroke-linecap="round" stroke-dasharray="${(2*Math.PI*48).toFixed(2)}"
-            stroke-dashoffset="${(2*Math.PI*48).toFixed(2)}"
-            transform="rotate(-90 55 55)" style="transition:stroke-dashoffset 0.5s linear;"/>
-        </svg>
-        <div class="timer-display">
-          <input class="timer-time-input" id="timer-time" type="text" readonly
-            value="${timer.hobbyId===hobby.id ? fmtTimer(Math.max(0, timer.mode>0 ? timer.mode-timer.elapsed : timer.elapsed)) : '25:00'}">
-          <div class="timer-label" id="timer-label">ready</div>
-        </div>
-      </div>
-      <div class="timer-controls">
-        <button class="timer-btn primary" id="timer-start">Start</button>
-        <button class="timer-btn secondary" id="timer-reset" disabled>Reset</button>
-        <button class="timer-btn log-btn" id="timer-log" style="display:none;" disabled>Log it</button>
-      </div>
-      <div class="timer-done-banner" id="timer-done-banner" style="display:none;">
-        ✓ Session logged!
       </div>
     </div>
 
@@ -1406,78 +1481,6 @@ function renderModal() {
       <button id="delete-hobby-btn" style="background:none;border:1px solid #e0e0e0;border-radius:8px;padding:7px 14px;font-size:13px;color:#c44;cursor:pointer;">Remove this hobby</button>
     </div>
   `;
-
-  // ── Timer events ──
-  // Set hobby for timer if not already running on another
-  if (timer.hobbyId === null) timer.hobbyId = hobby.id;
-
-  function setTimerMinutes(min) {
-    if (timer.running) return;
-    if (timer.hobbyId !== hobby.id) { timerReset(); timer.hobbyId = hobby.id; }
-    timer.mode = min === 0 ? 0 : min * 60;
-    timer.elapsed = 0;
-    timer._baseElapsed = 0;
-    timer.done = false;
-    const slider = document.getElementById('timer-slider');
-    if (slider && min > 0) slider.value = min;
-    const sliderWrap = document.getElementById('timer-slider-wrap');
-    if (sliderWrap) sliderWrap.style.display = min === 0 ? 'none' : 'flex';
-    document.querySelectorAll('.timer-preset-btn').forEach(b =>
-      b.classList.toggle('active', parseInt(b.dataset.min) === min));
-    updateTimerDisplay();
-  }
-
-  document.querySelectorAll('.timer-preset-btn').forEach(btn => {
-    btn.addEventListener('click', () => setTimerMinutes(parseInt(btn.dataset.min)));
-  });
-
-  const slider = document.getElementById('timer-slider');
-  slider.addEventListener('input', () => {
-    setTimerMinutes(parseInt(slider.value));
-  });
-
-  const timeInput = document.getElementById('timer-time');
-  timeInput.addEventListener('click', () => {
-    if (timer.running || timer.elapsed > 0) return;
-    timeInput.removeAttribute('readonly');
-    timeInput.focus();
-    timeInput.select();
-  });
-  timeInput.addEventListener('blur', () => {
-    timeInput.setAttribute('readonly', true);
-    const parts = timeInput.value.split(':').map(Number);
-    let totalMin = 0;
-    if (parts.length === 2) totalMin = parts[0] + parts[1] / 60;
-    else if (parts.length === 3) totalMin = parts[0] * 60 + parts[1] + parts[2] / 60;
-    totalMin = Math.max(1, Math.min(120, Math.round(totalMin)));
-    setTimerMinutes(totalMin);
-  });
-  timeInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') timeInput.blur();
-  });
-
-  // Set initial slider visibility and active pill on open
-  const currentMin = timer.hobbyId === hobby.id ? (timer.mode === 0 ? 0 : Math.round(timer.mode / 60)) : 0;
-  document.getElementById('timer-slider-wrap').style.display = currentMin === 0 ? 'none' : 'flex';
-  document.querySelectorAll('.timer-preset-btn').forEach(b =>
-    b.classList.toggle('active', parseInt(b.dataset.min) === currentMin));
-
-  document.getElementById('timer-start').addEventListener('click', () => {
-    if (timer.hobbyId !== hobby.id) { timerReset(); timer.hobbyId = hobby.id; }
-    if (timer.running) timerPause(); else timerStart();
-  });
-
-  document.getElementById('timer-reset').addEventListener('click', () => {
-    timerReset();
-    timer.hobbyId = hobby.id;
-  });
-
-  document.getElementById('timer-log').addEventListener('click', () => {
-    if (timer.elapsed <= 0) return;
-    logTimerSession(timer.elapsed / 3600);
-  });
-
-  if (timer.hobbyId === hobby.id) updateTimerDisplay();
 
   // ── Manual log events ──
   document.getElementById('water-submit').addEventListener('click', () => {
@@ -1634,6 +1637,14 @@ document.getElementById('overlay').addEventListener('click', e => {
 document.getElementById('timer-widget').addEventListener('click', () => {
   if (timer.hobbyId) openModal(timer.hobbyId);
 });
+document.getElementById('tw-stop').addEventListener('click', e => {
+  e.stopPropagation();
+  widgetActionClick();
+});
+document.getElementById('tw-discard').addEventListener('click', e => {
+  e.stopPropagation();
+  widgetDiscardClick();
+});
 
 document.getElementById('add-modal-close').addEventListener('click', () => {
   document.getElementById('overlay2').style.display = 'none';
@@ -1698,17 +1709,37 @@ function chartOverTime(area) {
   const hobbies = state.hobbies.filter(h => (h.sessions||[]).length > 0);
   if (!hobbies.length) { area.innerHTML = '<p style="color:#aaa;font-size:14px;">No sessions logged yet.</p>'; return; }
   area.innerHTML = '<canvas id="chart-canvas"></canvas>';
-  const today = new Date().toISOString().slice(0,10);
-  const allDates = new Set([today]);
-  const datasets = hobbies.map(h => {
-    const sessions = [...(h.sessions||[])].sort((a,b) => new Date(a.date)-new Date(b.date));
+  const today = localDay(new Date());
+  const byDayPerHobby = hobbies.map(h => {
+    const byDay = {};
+    (h.sessions||[]).forEach(s => {
+      const day = localDay(s.date);
+      byDay[day] = (byDay[day] || 0) + s.hours;
+    });
+    return byDay;
+  });
+
+  // Find the earliest session date across all hobbies so every day in range gets a point.
+  let earliest = today;
+  byDayPerHobby.forEach(byDay => Object.keys(byDay).forEach(d => { if (d < earliest) earliest = d; }));
+
+  const labels = [];
+  let cur = new Date(earliest);
+  const todayDate = new Date(today);
+  while (localDay(cur) <= today) {
+    labels.push(localDay(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  const datasets = hobbies.map((h, i) => {
+    const byDay = byDayPerHobby[i];
     let cum = 0;
-    const points = sessions.map(s => ({ x: s.date.slice(0,10), y: parseFloat((cum += s.hours).toFixed(2)) }));
-    if (points[points.length-1].x !== today) points.push({ x: today, y: cum });
-    points.forEach(p => allDates.add(p.x));
+    const points = labels.map(day => {
+      if (byDay[day]) cum += byDay[day];
+      return { x: day, y: parseFloat(cum.toFixed(2)) };
+    });
     return { label: hobbyLabel(h), data: points, borderColor: h.color, backgroundColor: h.color+'22', tension: 0, fill: false, pointRadius: 3, borderWidth: 2 };
   });
-  const labels = [...allDates].sort();
   activeChart = new Chart(document.getElementById('chart-canvas'), {
     type: 'line', data: { labels, datasets },
     options: {
@@ -1727,14 +1758,15 @@ function chartHeatmap(area) {
   const dayMap = {};
   state.hobbies.forEach(h => {
     (h.sessions||[]).forEach(s => {
-      const day = s.date.slice(0,10);
+      const day = localDay(s.date);
       dayMap[day] = (dayMap[day]||0) + s.hours;
     });
   });
   const WEEKS = 26, CELL = 16, GAP = 3;
   const today = new Date(); today.setHours(0,0,0,0);
   const startDate = new Date(today);
-  startDate.setDate(today.getDate() - today.getDay() - (WEEKS-1)*7);
+  const mondayOffset = (today.getDay() + 6) % 7; // days since most recent Monday
+  startDate.setDate(today.getDate() - mondayOffset - (WEEKS-1)*7);
   const W = WEEKS*(CELL+GAP)+30, H = 7*(CELL+GAP)+44;
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
@@ -1742,14 +1774,14 @@ function chartHeatmap(area) {
   area.innerHTML = ''; area.appendChild(canvas);
   const ctx = canvas.getContext('2d');
   const maxH = Math.max(...Object.values(dayMap), 0.01);
-  const todayStr = today.toISOString().slice(0,10);
-  const DLABELS = ['Su','M','Tu','W','Th','F','Sa'];
+  const todayStr = localDay(today);
+  const DLABELS = ['M','Tu','W','Th','F','Sa','Su'];
   ctx.font = '9px system-ui'; ctx.fillStyle = '#bbb';
-  [1,3,5].forEach(d => ctx.fillText(DLABELS[d], 0, 22 + d*(CELL+GAP) + CELL*0.75));
+  [0,2,4].forEach(d => ctx.fillText(DLABELS[d], 0, 22 + d*(CELL+GAP) + CELL*0.75));
   let cur = new Date(startDate);
   for (let w = 0; w < WEEKS; w++) {
     for (let d = 0; d < 7; d++) {
-      const ds = cur.toISOString().slice(0,10);
+      const ds = localDay(cur);
       const h = dayMap[ds]||0;
       const intensity = h > 0 ? 0.15 + (h/maxH)*0.85 : 0;
       const x = 22 + w*(CELL+GAP), y = 8 + d*(CELL+GAP);
@@ -1809,6 +1841,112 @@ document.getElementById('congrats-close').addEventListener('click', () => {
 document.getElementById('congrats-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('congrats-overlay'))
     document.getElementById('congrats-overlay').style.display = 'none';
+});
+
+// ─── Quick Timer (standalone, hobby-agnostic) ────────────────────────────────
+function setQuickTimerMinutes(min) {
+  if (timer.running) return;
+  const select = document.getElementById('qt-hobby-select');
+  const chosenId = select.value;
+  if (timer.hobbyId !== chosenId) { timerReset(); timer.hobbyId = chosenId; }
+  timer.mode = min === 0 ? 0 : min * 60;
+  timer.elapsed = 0;
+  timer._baseElapsed = 0;
+  timer.done = false;
+  const slider = document.getElementById('qt-slider');
+  if (slider && min > 0) slider.value = min;
+  document.getElementById('qt-slider-wrap').style.display = min === 0 ? 'none' : 'flex';
+  document.querySelectorAll('.qt-preset-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.min) === min));
+  updateTimerDisplay();
+}
+
+function openQuickTimer() {
+  const select = document.getElementById('qt-hobby-select');
+  select.innerHTML = state.hobbies.map(h =>
+    `<option value="${h.id}">${escHtml(hobbyLabel(h))}</option>`).join('');
+  if (state.hobbies.length === 0) {
+    select.innerHTML = '<option value="">No hobbies yet — plant one first</option>';
+  } else if (timer.hobbyId && state.hobbies.some(h => h.id === timer.hobbyId)) {
+    select.value = timer.hobbyId;
+  } else {
+    select.value = state.hobbies[0].id;
+  }
+  select.disabled = timer.running;
+
+  const currentMin = timer.mode === 0 ? 0 : Math.round(timer.mode / 60);
+  document.getElementById('qt-slider-wrap').style.display = currentMin === 0 ? 'none' : 'flex';
+  document.querySelectorAll('.qt-preset-btn').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.min) === currentMin));
+
+  updateTimerDisplay();
+  document.getElementById('timer-widget').style.display = 'none';
+  document.getElementById('quick-timer-overlay').style.display = 'flex';
+}
+
+function closeQuickTimer() {
+  document.getElementById('quick-timer-overlay').style.display = 'none';
+  updateWidget();
+}
+
+document.getElementById('quick-timer-btn').addEventListener('click', openQuickTimer);
+document.getElementById('quick-timer-close').addEventListener('click', closeQuickTimer);
+document.getElementById('quick-timer-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('quick-timer-overlay')) closeQuickTimer();
+});
+
+document.getElementById('qt-hobby-select').addEventListener('change', e => {
+  if (timer.running) return;
+  timerReset();
+  timer.hobbyId = e.target.value;
+  updateTimerDisplay();
+});
+
+document.querySelectorAll('.qt-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => setQuickTimerMinutes(parseInt(btn.dataset.min)));
+});
+
+document.getElementById('qt-slider').addEventListener('input', e => {
+  setQuickTimerMinutes(parseInt(e.target.value));
+});
+
+const qtTimeInput = document.getElementById('qt-time');
+qtTimeInput.addEventListener('click', () => {
+  if (timer.running || timer.elapsed > 0) return;
+  qtTimeInput.removeAttribute('readonly');
+  qtTimeInput.focus();
+  qtTimeInput.select();
+});
+qtTimeInput.addEventListener('blur', () => {
+  qtTimeInput.setAttribute('readonly', true);
+  const parts = qtTimeInput.value.split(':').map(Number);
+  let totalMin = 0;
+  if (parts.length === 2) totalMin = parts[0] + parts[1] / 60;
+  else if (parts.length === 3) totalMin = parts[0] * 60 + parts[1] + parts[2] / 60;
+  totalMin = Math.max(1, Math.min(120, Math.round(totalMin)));
+  setQuickTimerMinutes(totalMin);
+});
+qtTimeInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') qtTimeInput.blur();
+});
+
+document.getElementById('qt-start').addEventListener('click', () => {
+  const select = document.getElementById('qt-hobby-select');
+  if (!select.value) return;
+  if (timer.hobbyId !== select.value) { timerReset(); timer.hobbyId = select.value; }
+  select.disabled = true;
+  if (timer.running) timerPause(); else timerStart();
+});
+
+document.getElementById('qt-reset').addEventListener('click', () => {
+  timerReset();
+  document.getElementById('qt-hobby-select').disabled = false;
+});
+
+document.getElementById('qt-log').addEventListener('click', () => {
+  if (timer.elapsed <= 0) return;
+  logTimerSession(timer.elapsed / 3600);
+  document.getElementById('qt-hobby-select').disabled = false;
 });
 
 (function() {
