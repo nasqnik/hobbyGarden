@@ -1762,6 +1762,37 @@ function chartHeatmap(area) {
       dayMap[day] = (dayMap[day]||0) + s.hours;
     });
   });
+
+  const activeDays = Object.keys(dayMap);
+  const totalLogged = activeDays.reduce((sum, d) => sum + dayMap[d], 0);
+  const avgPerActiveDay = activeDays.length ? totalLogged / activeDays.length : 0;
+  let bestDay = null, bestHours = 0;
+  activeDays.forEach(d => { if (dayMap[d] > bestHours) { bestHours = dayMap[d]; bestDay = d; } });
+
+  // Longest streak of consecutive active days (up to today)
+  let longestStreak = 0, curStreak = 0;
+  if (activeDays.length) {
+    const sortedDays = activeDays.slice().sort();
+    const first = new Date(sortedDays[0]), last = new Date(sortedDays[sortedDays.length-1]);
+    let cursor = new Date(first);
+    while (cursor <= last) {
+      if (dayMap[localDay(cursor)]) { curStreak++; longestStreak = Math.max(longestStreak, curStreak); }
+      else curStreak = 0;
+      cursor.setDate(cursor.getDate()+1);
+    }
+  }
+
+  area.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div class="stat-card"><div class="val">${fmtH(avgPerActiveDay)}</div><div class="lbl">Avg / active day</div></div>
+      <div class="stat-card"><div class="val">${activeDays.length}</div><div class="lbl">Active days</div></div>
+      <div class="stat-card"><div class="val">${longestStreak}</div><div class="lbl">Longest streak</div></div>
+      <div class="stat-card"><div class="val">${bestDay ? fmtH(bestHours) : '—'}</div><div class="lbl">${bestDay ? fmtDate(bestDay) : 'Best day'}</div></div>
+    </div>
+    <div id="heatmap-canvas-wrap"></div>
+  `;
+  const canvasWrap = document.getElementById('heatmap-canvas-wrap');
+
   const WEEKS = 26, CELL = 16, GAP = 3;
   const today = new Date(); today.setHours(0,0,0,0);
   const startDate = new Date(today);
@@ -1771,7 +1802,7 @@ function chartHeatmap(area) {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   canvas.style.cssText = 'width:100%;margin-bottom:8px;';
-  area.innerHTML = ''; area.appendChild(canvas);
+  canvasWrap.appendChild(canvas);
   const ctx = canvas.getContext('2d');
   const maxH = Math.max(...Object.values(dayMap), 0.01);
   const todayStr = localDay(today);
@@ -1800,7 +1831,7 @@ function chartHeatmap(area) {
     if (m !== lastMonth) { ctx.fillText(cur.toLocaleString('default',{month:'short'}), 22+w*(CELL+GAP), H-4); lastMonth = m; }
     cur.setDate(cur.getDate()+7);
   }
-  area.insertAdjacentHTML('beforeend',`
+  canvasWrap.insertAdjacentHTML('beforeend',`
     <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#aaa;">
       <span>Less</span>
       ${[0,0.2,0.4,0.65,0.9].map(i=>`<div style="width:11px;height:11px;border-radius:2px;background:${i===0?'#f0f0f0':`rgba(45,110,35,${i})`}"></div>`).join('')}
