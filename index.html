@@ -1406,6 +1406,9 @@ function renderModal() {
         <span style="font-size:13px;color:#666;">min</span>
         <button class="water-btn" id="water-submit">Water it</button>
       </div>
+      <div class="form-row" style="margin-top:8px;">
+        <input type="date" id="water-date" max="${localDay(new Date())}" value="${localDay(new Date())}" style="font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid #ddd;color:#555;">
+      </div>
     </div>
 
     ${totalHours(hobby) >= 40 && !hobby.spawned ? `
@@ -1488,9 +1491,13 @@ function renderModal() {
     const min = parseInt(document.getElementById('water-m').value) || 0;
     const val = hrs + min / 60;
     if (val <= 0) return;
+    const dateStr = document.getElementById('water-date').value || localDay(new Date());
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const now = new Date();
+    const sessionDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
     const h = state.hobbies.find(x => x.id === selectedHobbyId);
     h.sessions = h.sessions || [];
-    h.sessions.push({ hours: val, date: new Date().toISOString() });
+    h.sessions.push({ hours: val, date: sessionDate.toISOString() });
     saveState();
     renderGarden();
     renderModal();
